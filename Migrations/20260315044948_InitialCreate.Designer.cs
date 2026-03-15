@@ -12,7 +12,7 @@ using TransitAnalyticsAPI.Persistence;
 namespace TransitAnalyticsAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260315023522_InitialCreate")]
+    [Migration("20260315044948_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -29,44 +29,56 @@ namespace TransitAnalyticsAPI.Migrations
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Bearing")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("bearing");
 
                     b.Property<DateTime>("IngestedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ingested_at_utc");
 
                     b.Property<double>("Latitude")
-                        .HasColumnType("double precision");
+                        .HasColumnType("double precision")
+                        .HasColumnName("latitude");
 
                     b.Property<double>("Longitude")
-                        .HasColumnType("double precision");
+                        .HasColumnType("double precision")
+                        .HasColumnName("longitude");
 
                     b.Property<DateTime>("RecordedAtUtc")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at_utc");
 
                     b.Property<string>("RouteId")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("route_id");
 
                     b.Property<string>("SourceEntityId")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("source_entity_id");
 
                     b.Property<double?>("Speed")
-                        .HasColumnType("double precision");
+                        .HasColumnType("double precision")
+                        .HasColumnName("speed");
 
                     b.Property<string>("TripId")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("trip_id");
 
                     b.Property<string>("VehicleId")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("vehicle_id");
 
-                    b.HasKey("Id");
+                    b.HasKey("Id")
+                        .HasName("pk_vehicle_positions");
 
-                    b.ToTable("VehiclePositions");
+                    b.ToTable("vehicle_positions", (string)null);
                 });
 #pragma warning restore 612, 618
         }
