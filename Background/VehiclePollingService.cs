@@ -1,0 +1,63 @@
+using TransitAnalyticsAPI.Services;
+
+namespace TransitAnalyticsAPI.Background;
+
+public class VehiclePollingService : BackgroundService
+{
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(30);
+
+    private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly ILogger<VehiclePollingService> _logger;
+
+    public VehiclePollingService(
+        IServiceScopeFactory serviceScopeFactory,
+        ILogger<VehiclePollingService> logger)
+    {
+        _serviceScopeFactory = serviceScopeFactory;
+        _logger = logger;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        using var timer = new PeriodicTimer(PollInterval);
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            await RunIngestionAsync(stoppingToken);
+
+            try
+            {
+                await timer.WaitForNextTickAsync(stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+    }
+
+    private async Task RunIngestionAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var scope = _serviceScopeFactory.CreateScope();
+            var ingestionService = scope.ServiceProvider.GetRequiredService<IVehiclePositionIngestionService>();
+
+            var result = await ingestionService.IngestAsync(cancellationToken);
+
+            _logger.LogInformation(
+                "Vehicle polling completed. Status: {Status}. Entities: {TotalEntities}. Saved: {SavedVehiclePositions}.",
+                result.Status,
+                result.TotalEntities,
+                result.SavedVehiclePositions);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Vehicle polling failed.");
+        }
+    }
+}
