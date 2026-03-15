@@ -10,9 +10,6 @@ public class AucklandTransportPosition
     [JsonPropertyName("longitude")]
     public double Longitude { get; set; }
 
-    [JsonPropertyName("bearing")]
-    public string? Bearing { get; set; }
-
     [JsonPropertyName("speed")]
     public double? Speed { get; set; }
 }
