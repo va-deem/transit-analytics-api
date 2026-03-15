@@ -12,6 +12,7 @@ builder.Services.AddOpenApi();
 builder.Services.Configure<AucklandTransportOptions>(
     builder.Configuration.GetSection(AucklandTransportOptions.SectionName));
 builder.Services.AddScoped<IVehiclePositionMapper, VehiclePositionMapper>();
+builder.Services.AddScoped<IVehiclePositionIngestionService, VehiclePositionIngestionService>();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
         .UseSnakeCaseNamingConvention());

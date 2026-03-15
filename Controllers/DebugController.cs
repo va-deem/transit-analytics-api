@@ -9,13 +9,16 @@ namespace TransitAnalyticsAPI.Controllers;
 public class DebugController : ControllerBase
 {
     private readonly IAucklandTransportClient _aucklandTransportClient;
+    private readonly IVehiclePositionIngestionService _vehiclePositionIngestionService;
     private readonly IVehiclePositionMapper _vehiclePositionMapper;
 
     public DebugController(
         IAucklandTransportClient aucklandTransportClient,
+        IVehiclePositionIngestionService vehiclePositionIngestionService,
         IVehiclePositionMapper vehiclePositionMapper)
     {
         _aucklandTransportClient = aucklandTransportClient;
+        _vehiclePositionIngestionService = vehiclePositionIngestionService;
         _vehiclePositionMapper = vehiclePositionMapper;
     }
 
@@ -40,5 +43,13 @@ public class DebugController : ControllerBase
             MappedVehiclePositions = vehiclePositions.Count,
             Sample = sample
         });
+    }
+
+    [HttpPost("vehiclelocations/save")]
+    public async Task<IActionResult> SaveVehicleLocations(CancellationToken cancellationToken)
+    {
+        var result = await _vehiclePositionIngestionService.IngestAsync(cancellationToken);
+
+        return Ok(result);
     }
 }
