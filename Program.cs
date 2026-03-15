@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TransitAnalyticsAPI.Clients.AucklandTransport;
 using TransitAnalyticsAPI.Configuration;
 using TransitAnalyticsAPI.Persistence;
+using TransitAnalyticsAPI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +11,7 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.Configure<AucklandTransportOptions>(
     builder.Configuration.GetSection(AucklandTransportOptions.SectionName));
+builder.Services.AddScoped<IVehiclePositionMapper, VehiclePositionMapper>();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
         .UseSnakeCaseNamingConvention());

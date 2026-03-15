@@ -1,17 +1,22 @@
 using Microsoft.AspNetCore.Mvc;
 using TransitAnalyticsAPI.Clients.AucklandTransport;
+using TransitAnalyticsAPI.Services;
 
 namespace TransitAnalyticsAPI.Controllers;
 
 [ApiController]
 [Route("debug")]
-public class  DebugController : ControllerBase
+public class DebugController : ControllerBase
 {
     private readonly IAucklandTransportClient _aucklandTransportClient;
+    private readonly IVehiclePositionMapper _vehiclePositionMapper;
 
-    public DebugController(IAucklandTransportClient aucklandTransportClient)
+    public DebugController(
+        IAucklandTransportClient aucklandTransportClient,
+        IVehiclePositionMapper vehiclePositionMapper)
     {
         _aucklandTransportClient = aucklandTransportClient;
+        _vehiclePositionMapper = vehiclePositionMapper;
     }
 
     [HttpGet("vehiclelocations")]
@@ -24,26 +29,15 @@ public class  DebugController : ControllerBase
             return StatusCode(StatusCodes.Status502BadGateway, "Auckland Transport response was empty.");
         }
 
-        var sample = response.Response.Entity
-            .Where(entity => entity.Vehicle?.Position is not null)
-            .Take(5)
-            .Select(entity => new
-            {
-                entity.Id,
-                VehicleId = entity.Vehicle?.Vehicle?.Id,
-                TripId = entity.Vehicle?.Trip?.TripId,
-                RouteId = entity.Vehicle?.Trip?.RouteId,
-                Latitude = entity.Vehicle?.Position?.Latitude,
-                Longitude = entity.Vehicle?.Position?.Longitude,
-                Speed = entity.Vehicle?.Position?.Speed,
-                Timestamp = entity.Vehicle?.Timestamp
-            });
+        var vehiclePositions = _vehiclePositionMapper.Map(response.Response.Entity);
+        var sample = vehiclePositions.Take(5);
 
         return Ok(new
         {
             response.Status,
             HeaderTimestamp = response.Response.Header?.Timestamp,
             TotalEntities = response.Response.Entity.Count,
+            MappedVehiclePositions = vehiclePositions.Count,
             Sample = sample
         });
     }
