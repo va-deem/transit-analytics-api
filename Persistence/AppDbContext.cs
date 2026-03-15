@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TransitAnalyticsAPI.Models.Entities;
 
-namespace TransitAnalyticsAPI.Data;
+namespace TransitAnalyticsAPI.Persistence;
 
 public class AppDbContext : DbContext
 {

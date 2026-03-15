@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using TransitAnalyticsAPI.Data;
+using TransitAnalyticsAPI.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
