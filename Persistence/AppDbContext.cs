@@ -9,5 +9,24 @@ public class AppDbContext : DbContext
     {
     }
 
+    public DbSet<GtfsImportRun> GtfsImportRuns => Set<GtfsImportRun>();
+
+    public DbSet<GtfsRoute> GtfsRoutes => Set<GtfsRoute>();
+
+    public DbSet<GtfsTrip> GtfsTrips => Set<GtfsTrip>();
+
     public DbSet<VehiclePosition> VehiclePositions => Set<VehiclePosition>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<GtfsImportRun>()
+            .HasMany(importRun => importRun.Routes)
+            .WithOne(route => route.ImportRun)
+            .HasForeignKey(route => route.ImportRunId);
+
+        modelBuilder.Entity<GtfsImportRun>()
+            .HasMany(importRun => importRun.Trips)
+            .WithOne(trip => trip.ImportRun)
+            .HasForeignKey(trip => trip.ImportRunId);
+    }
 }
