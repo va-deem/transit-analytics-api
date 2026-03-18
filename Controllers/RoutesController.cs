@@ -82,4 +82,99 @@ public class RoutesController : ControllerBase
 
         return Ok(routeVehicles);
     }
+
+    [HttpGet("{id}/shape")]
+    public async Task<ActionResult<List<RouteShapePointDto>>> GetRouteShape(
+        string id,
+        CancellationToken cancellationToken)
+    {
+        var activeImportRunId = await _appDbContext.GtfsImportRuns
+            .AsNoTracking()
+            .Where(importRun => importRun.IsActive && importRun.Status == "completed")
+            .OrderByDescending(importRun => importRun.CompletedAtUtc)
+            .Select(importRun => (long?)importRun.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (!activeImportRunId.HasValue)
+        {
+            return Ok(new List<RouteShapePointDto>());
+        }
+
+        var shapeId = await _appDbContext.GtfsTrips
+            .AsNoTracking()
+            .Where(trip => trip.ImportRunId == activeImportRunId.Value && trip.RouteId == id && trip.ShapeId != null)
+            .OrderBy(trip => trip.TripId)
+            .Select(trip => trip.ShapeId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(shapeId))
+        {
+            return Ok(new List<RouteShapePointDto>());
+        }
+
+        var shapePoints = await _appDbContext.GtfsShapePoints
+            .AsNoTracking()
+            .Where(shapePoint => shapePoint.ImportRunId == activeImportRunId.Value && shapePoint.ShapeId == shapeId)
+            .OrderBy(shapePoint => shapePoint.Sequence)
+            .Select(shapePoint => new RouteShapePointDto
+            {
+                ShapeId = shapePoint.ShapeId,
+                Latitude = shapePoint.Latitude,
+                Longitude = shapePoint.Longitude,
+                Sequence = shapePoint.Sequence
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(shapePoints);
+    }
+
+    [HttpGet("{id}/stops")]
+    public async Task<ActionResult<List<RouteStopDto>>> GetRouteStops(
+        string id,
+        CancellationToken cancellationToken)
+    {
+        var activeImportRunId = await _appDbContext.GtfsImportRuns
+            .AsNoTracking()
+            .Where(importRun => importRun.IsActive && importRun.Status == "completed")
+            .OrderByDescending(importRun => importRun.CompletedAtUtc)
+            .Select(importRun => (long?)importRun.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (!activeImportRunId.HasValue)
+        {
+            return Ok(new List<RouteStopDto>());
+        }
+
+        var tripId = await _appDbContext.GtfsTrips
+            .AsNoTracking()
+            .Where(trip => trip.ImportRunId == activeImportRunId.Value && trip.RouteId == id)
+            .OrderBy(trip => trip.TripId)
+            .Select(trip => trip.TripId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(tripId))
+        {
+            return Ok(new List<RouteStopDto>());
+        }
+
+        var stops = await (
+            from stopTime in _appDbContext.GtfsStopTimes.AsNoTracking()
+            join stop in _appDbContext.GtfsStops.AsNoTracking()
+                on new { stopTime.ImportRunId, stopTime.StopId } equals new { stop.ImportRunId, stop.StopId }
+            where stopTime.ImportRunId == activeImportRunId.Value && stopTime.TripId == tripId
+            orderby stopTime.StopSequence
+            select new RouteStopDto
+            {
+                StopId = stop.StopId,
+                StopCode = stop.StopCode,
+                StopName = stop.StopName,
+                StopLat = stop.StopLat,
+                StopLon = stop.StopLon,
+                StopSequence = stopTime.StopSequence,
+                PlatformCode = stop.PlatformCode
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(stops);
+    }
 }

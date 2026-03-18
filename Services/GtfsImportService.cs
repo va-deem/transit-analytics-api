@@ -9,6 +9,8 @@ namespace TransitAnalyticsAPI.Services;
 
 public class GtfsImportService : IGtfsImportService
 {
+    private const int BatchSize = 5000;
+
     private readonly AppDbContext _appDbContext;
     private readonly IWebHostEnvironment _environment;
 
@@ -23,6 +25,9 @@ public class GtfsImportService : IGtfsImportService
         var gtfsDirectory = Path.Combine(_environment.ContentRootPath, "data", "gtfs-static");
         var feedInfoPath = Path.Combine(gtfsDirectory, "feed_info.txt");
         var routesPath = Path.Combine(gtfsDirectory, "routes.txt");
+        var shapesPath = Path.Combine(gtfsDirectory, "shapes.txt");
+        var stopsPath = Path.Combine(gtfsDirectory, "stops.txt");
+        var stopTimesPath = Path.Combine(gtfsDirectory, "stop_times.txt");
         var tripsPath = Path.Combine(gtfsDirectory, "trips.txt");
 
         var sourceVersion = ReadFeedVersion(feedInfoPath);
@@ -40,10 +45,16 @@ public class GtfsImportService : IGtfsImportService
         try
         {
             var routes = ReadRoutes(routesPath, importRun.Id);
+            var stops = ReadStops(stopsPath, importRun.Id);
             var trips = ReadTrips(tripsPath, importRun.Id);
 
             _appDbContext.GtfsRoutes.AddRange(routes);
+            _appDbContext.GtfsStops.AddRange(stops);
             _appDbContext.GtfsTrips.AddRange(trips);
+            await _appDbContext.SaveChangesAsync(cancellationToken);
+
+            var importedShapePoints = await ImportShapePointsAsync(shapesPath, importRun.Id, cancellationToken);
+            var importedStopTimes = await ImportStopTimesAsync(stopTimesPath, importRun.Id, cancellationToken);
 
             var activeRuns = await _appDbContext.GtfsImportRuns
                 .Where(run => run.IsActive)
@@ -54,9 +65,12 @@ public class GtfsImportService : IGtfsImportService
                 activeRun.IsActive = false;
             }
 
-            importRun.IsActive = true;
-            importRun.Status = "completed";
-            importRun.CompletedAtUtc = DateTime.UtcNow;
+            var importRunToFinalize = await _appDbContext.GtfsImportRuns
+                .SingleAsync(run => run.Id == importRun.Id, cancellationToken);
+
+            importRunToFinalize.IsActive = true;
+            importRunToFinalize.Status = "completed";
+            importRunToFinalize.CompletedAtUtc = DateTime.UtcNow;
 
             await _appDbContext.SaveChangesAsync(cancellationToken);
 
@@ -64,15 +78,21 @@ public class GtfsImportService : IGtfsImportService
             {
                 SourceVersion = sourceVersion,
                 ImportedRoutes = routes.Count,
+                ImportedShapePoints = importedShapePoints,
+                ImportedStops = stops.Count,
+                ImportedStopTimes = importedStopTimes,
                 ImportedTrips = trips.Count,
                 ImportRunId = importRun.Id
             };
         }
         catch (Exception exception)
         {
-            importRun.Status = "failed";
-            importRun.Notes = exception.Message;
-            importRun.CompletedAtUtc = DateTime.UtcNow;
+            var importRunToFail = await _appDbContext.GtfsImportRuns
+                .SingleAsync(run => run.Id == importRun.Id, cancellationToken);
+
+            importRunToFail.Status = "failed";
+            importRunToFail.Notes = exception.Message;
+            importRunToFail.CompletedAtUtc = DateTime.UtcNow;
             await _appDbContext.SaveChangesAsync(cancellationToken);
             throw;
         }
@@ -130,6 +150,113 @@ public class GtfsImportService : IGtfsImportService
                 ShapeId = GetOptionalValue(trip.ShapeId)
             })
             .ToList();
+    }
+
+    private async Task<int> ImportShapePointsAsync(
+        string filePath,
+        long importRunId,
+        CancellationToken cancellationToken)
+    {
+        using var reader = new StreamReader(filePath);
+        using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
+        var batch = new List<GtfsShapePoint>(BatchSize);
+        var importedCount = 0;
+
+        foreach (var shapePoint in csv.GetRecords<GtfsShapePointRecord>())
+        {
+            batch.Add(new GtfsShapePoint
+            {
+                ImportRunId = importRunId,
+                ShapeId = GetRequiredValue(shapePoint.ShapeId, "shape_id"),
+                Latitude = shapePoint.ShapePointLatitude,
+                Longitude = shapePoint.ShapePointLongitude,
+                Sequence = shapePoint.ShapePointSequence,
+                DistanceTraveled = shapePoint.ShapeDistanceTraveled
+            });
+
+            if (batch.Count >= BatchSize)
+            {
+                importedCount += await SaveBatchAsync(_appDbContext.GtfsShapePoints, batch, cancellationToken);
+            }
+        }
+
+        if (batch.Count > 0)
+        {
+            importedCount += await SaveBatchAsync(_appDbContext.GtfsShapePoints, batch, cancellationToken);
+        }
+
+        return importedCount;
+    }
+
+    private static List<GtfsStop> ReadStops(string filePath, long importRunId)
+    {
+        using var reader = new StreamReader(filePath);
+        using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
+
+        return csv.GetRecords<GtfsStopRecord>()
+            .Select(stop => new GtfsStop
+            {
+                ImportRunId = importRunId,
+                StopId = GetRequiredValue(stop.StopId, "stop_id"),
+                StopCode = GetOptionalValue(stop.StopCode),
+                StopName = GetOptionalValue(stop.StopName),
+                StopLat = stop.StopLat,
+                StopLon = stop.StopLon,
+                LocationType = stop.LocationType,
+                ParentStation = GetOptionalValue(stop.ParentStation),
+                PlatformCode = GetOptionalValue(stop.PlatformCode)
+            })
+            .ToList();
+    }
+
+    private async Task<int> ImportStopTimesAsync(
+        string filePath,
+        long importRunId,
+        CancellationToken cancellationToken)
+    {
+        using var reader = new StreamReader(filePath);
+        using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
+        var batch = new List<GtfsStopTime>(BatchSize);
+        var importedCount = 0;
+
+        foreach (var stopTime in csv.GetRecords<GtfsStopTimeRecord>())
+        {
+            batch.Add(new GtfsStopTime
+            {
+                ImportRunId = importRunId,
+                TripId = GetRequiredValue(stopTime.TripId, "trip_id"),
+                StopId = GetRequiredValue(stopTime.StopId, "stop_id"),
+                StopSequence = stopTime.StopSequence,
+                StopHeadsign = GetOptionalValue(stopTime.StopHeadsign),
+                ShapeDistTraveled = stopTime.ShapeDistTraveled
+            });
+
+            if (batch.Count >= BatchSize)
+            {
+                importedCount += await SaveBatchAsync(_appDbContext.GtfsStopTimes, batch, cancellationToken);
+            }
+        }
+
+        if (batch.Count > 0)
+        {
+            importedCount += await SaveBatchAsync(_appDbContext.GtfsStopTimes, batch, cancellationToken);
+        }
+
+        return importedCount;
+    }
+
+    private async Task<int> SaveBatchAsync<TEntity>(
+        DbSet<TEntity> dbSet,
+        List<TEntity> batch,
+        CancellationToken cancellationToken)
+        where TEntity : class
+    {
+        dbSet.AddRange(batch);
+        await _appDbContext.SaveChangesAsync(cancellationToken);
+        var count = batch.Count;
+        batch.Clear();
+        _appDbContext.ChangeTracker.Clear();
+        return count;
     }
 
     private static string GetRequiredValue(string? value, string fieldName)
@@ -196,5 +323,68 @@ public class GtfsImportService : IGtfsImportService
 
         [Name("shape_id")]
         public string? ShapeId { get; set; }
+    }
+
+    private sealed class GtfsShapePointRecord
+    {
+        [Name("shape_id")]
+        public string ShapeId { get; set; } = string.Empty;
+
+        [Name("shape_pt_lat")]
+        public double ShapePointLatitude { get; set; }
+
+        [Name("shape_pt_lon")]
+        public double ShapePointLongitude { get; set; }
+
+        [Name("shape_pt_sequence")]
+        public int ShapePointSequence { get; set; }
+
+        [Name("shape_dist_traveled")]
+        public double? ShapeDistanceTraveled { get; set; }
+    }
+
+    private sealed class GtfsStopRecord
+    {
+        [Name("stop_id")]
+        public string StopId { get; set; } = string.Empty;
+
+        [Name("stop_code")]
+        public string? StopCode { get; set; }
+
+        [Name("stop_name")]
+        public string? StopName { get; set; }
+
+        [Name("stop_lat")]
+        public double StopLat { get; set; }
+
+        [Name("stop_lon")]
+        public double StopLon { get; set; }
+
+        [Name("location_type")]
+        public int? LocationType { get; set; }
+
+        [Name("parent_station")]
+        public string? ParentStation { get; set; }
+
+        [Name("platform_code")]
+        public string? PlatformCode { get; set; }
+    }
+
+    private sealed class GtfsStopTimeRecord
+    {
+        [Name("trip_id")]
+        public string TripId { get; set; } = string.Empty;
+
+        [Name("stop_id")]
+        public string StopId { get; set; } = string.Empty;
+
+        [Name("stop_sequence")]
+        public int StopSequence { get; set; }
+
+        [Name("stop_headsign")]
+        public string? StopHeadsign { get; set; }
+
+        [Name("shape_dist_traveled")]
+        public double? ShapeDistTraveled { get; set; }
     }
 }

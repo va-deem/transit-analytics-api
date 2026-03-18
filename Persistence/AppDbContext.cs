@@ -13,6 +13,12 @@ public class AppDbContext : DbContext
 
     public DbSet<GtfsRoute> GtfsRoutes => Set<GtfsRoute>();
 
+    public DbSet<GtfsShapePoint> GtfsShapePoints => Set<GtfsShapePoint>();
+
+    public DbSet<GtfsStop> GtfsStops => Set<GtfsStop>();
+
+    public DbSet<GtfsStopTime> GtfsStopTimes => Set<GtfsStopTime>();
+
     public DbSet<GtfsTrip> GtfsTrips => Set<GtfsTrip>();
 
     public DbSet<VehiclePosition> VehiclePositions => Set<VehiclePosition>();
@@ -23,6 +29,21 @@ public class AppDbContext : DbContext
             .HasMany(importRun => importRun.Routes)
             .WithOne(route => route.ImportRun)
             .HasForeignKey(route => route.ImportRunId);
+
+        modelBuilder.Entity<GtfsImportRun>()
+            .HasMany(importRun => importRun.ShapePoints)
+            .WithOne(shapePoint => shapePoint.ImportRun)
+            .HasForeignKey(shapePoint => shapePoint.ImportRunId);
+
+        modelBuilder.Entity<GtfsImportRun>()
+            .HasMany(importRun => importRun.Stops)
+            .WithOne(stop => stop.ImportRun)
+            .HasForeignKey(stop => stop.ImportRunId);
+
+        modelBuilder.Entity<GtfsImportRun>()
+            .HasMany(importRun => importRun.StopTimes)
+            .WithOne(stopTime => stopTime.ImportRun)
+            .HasForeignKey(stopTime => stopTime.ImportRunId);
 
         modelBuilder.Entity<GtfsImportRun>()
             .HasMany(importRun => importRun.Trips)
