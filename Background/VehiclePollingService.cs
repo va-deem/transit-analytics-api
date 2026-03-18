@@ -42,8 +42,10 @@ public class VehiclePollingService : BackgroundService
         {
             using var scope = _serviceScopeFactory.CreateScope();
             var ingestionService = scope.ServiceProvider.GetRequiredService<IVehiclePositionIngestionService>();
+            var broadcastService = scope.ServiceProvider.GetRequiredService<IVehicleSnapshotBroadcastService>();
 
             var result = await ingestionService.IngestAsync(cancellationToken);
+            await broadcastService.BroadcastAsync(cancellationToken);
 
             _logger.LogInformation(
                 "Vehicle polling completed. Status: {Status}. Entities: {TotalEntities}. Saved: {SavedVehiclePositions}.",
