@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using TransitAnalyticsAPI.Models.Entities;
 using TransitAnalyticsAPI.Clients.AucklandTransport;
 using TransitAnalyticsAPI.Persistence;
 
@@ -32,6 +34,7 @@ public class VehiclePositionIngestionService : IVehiclePositionIngestionService
         }
 
         var vehiclePositions = _vehiclePositionMapper.Map(response.Response.Entity);
+        vehiclePositions = await FilterToSupportedVehicleTypesAsync(vehiclePositions, cancellationToken);
 
         _appDbContext.VehiclePositions.AddRange(vehiclePositions);
         await _appDbContext.SaveChangesAsync(cancellationToken);
@@ -43,5 +46,65 @@ public class VehiclePositionIngestionService : IVehiclePositionIngestionService
             TotalEntities = response.Response.Entity.Count,
             SavedVehiclePositions = vehiclePositions.Count
         };
+    }
+
+    private async Task<List<VehiclePosition>> FilterToSupportedVehicleTypesAsync(
+        List<VehiclePosition> vehiclePositions,
+        CancellationToken cancellationToken)
+    {
+        var activeImportRunId = await _appDbContext.GtfsImportRuns
+            .AsNoTracking()
+            .Where(importRun => importRun.IsActive && importRun.Status == "completed")
+            .OrderByDescending(importRun => importRun.CompletedAtUtc)
+            .Select(importRun => (long?)importRun.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (!activeImportRunId.HasValue)
+        {
+            return [];
+        }
+
+        var tripIds = vehiclePositions
+            .Where(position => string.IsNullOrWhiteSpace(position.TripId) == false)
+            .Select(position => position.TripId!)
+            .Distinct()
+            .ToList();
+
+        var trips = await _appDbContext.GtfsTrips
+            .AsNoTracking()
+            .Where(trip => trip.ImportRunId == activeImportRunId.Value && tripIds.Contains(trip.TripId))
+            .ToListAsync(cancellationToken);
+
+        var tripsByTripId = trips.ToDictionary(trip => trip.TripId, StringComparer.Ordinal);
+
+        var routeIds = vehiclePositions
+            .Select(position => position.RouteId)
+            .Where(routeId => string.IsNullOrWhiteSpace(routeId) == false)
+            .Select(routeId => routeId!)
+            .Concat(trips.Select(trip => trip.RouteId))
+            .Distinct()
+            .ToList();
+
+        var routes = await _appDbContext.GtfsRoutes
+            .AsNoTracking()
+            .Where(route => route.ImportRunId == activeImportRunId.Value && routeIds.Contains(route.RouteId))
+            .ToListAsync(cancellationToken);
+
+        var routesByRouteId = routes.ToDictionary(route => route.RouteId, StringComparer.Ordinal);
+
+        return vehiclePositions
+            .Where(position =>
+            {
+                tripsByTripId.TryGetValue(position.TripId ?? string.Empty, out var trip);
+                var routeId = position.RouteId ?? trip?.RouteId;
+
+                if (routeId is null || !routesByRouteId.TryGetValue(routeId, out var route))
+                {
+                    return false;
+                }
+
+                return string.IsNullOrWhiteSpace(VehicleLatestQueryService.MapVehicleType(route.RouteType)) == false;
+            })
+            .ToList();
     }
 }
