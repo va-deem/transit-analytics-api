@@ -1,0 +1,283 @@
+@page "/admin/settings"
+@model TransitAnalyticsAPI.Areas.Admin.Pages.SettingsModel
+@{
+    ViewData["Title"] = "Admin Settings";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f6f1e7;
+            --panel: rgba(255, 252, 244, 0.92);
+            --ink: #201a14;
+            --muted: #6b6258;
+            --accent: #0f766e;
+            --accent-soft: #ccfbf1;
+            --border: #ddd3c5;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            min-height: 100vh;
+            color: var(--ink);
+            font-family: Arial, serif;
+        }
+
+        .page {
+            width: min(920px, calc(100vw - 40px));
+            margin: 20px auto;
+        }
+
+        header, section {
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: var(--panel);
+            box-shadow: 0 14px 30px rgba(32, 26, 20, 0.08);
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.25rem;
+        }
+
+        section {
+            padding: 1.5rem;
+            margin-bottom: 1.25rem;
+        }
+
+        h1, h2 { margin-top: 0; }
+        p { color: var(--muted); }
+
+        .status {
+            display: inline-block;
+            padding: 0.35rem 0.65rem;
+            border-radius: 999px;
+            background: var(--accent-soft);
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        .actions {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 0.8rem 1rem;
+            border: 0;
+            border-radius: 10px;
+            background: var(--accent);
+            color: white;
+            font: inherit;
+            cursor: pointer;
+        }
+
+        .secondary {
+            background: #433b32;
+        }
+
+        .notice {
+            margin-bottom: 1rem;
+            padding: 0.75rem 0.9rem;
+            border-radius: 10px;
+            background: #ecfeff;
+            color: #155e75;
+        }
+
+        .running {
+            margin-bottom: 1rem;
+            padding: 0.9rem 1rem;
+            border-radius: 12px;
+            background: #fff7cc;
+            color: #854d0e;
+            font-weight: 700;
+        }
+
+        input[type=file] {
+            display: block;
+            width: 100%;
+            margin: 1rem 0;
+            font: inherit;
+        }
+
+        dl {
+            display: grid;
+            grid-template-columns: max-content 1fr;
+            gap: 0.5rem 1rem;
+            margin: 1rem 0 0;
+        }
+
+        dt {
+            font-weight: 700;
+        }
+
+        dd {
+            margin: 0;
+            color: var(--muted);
+        }
+
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1rem 1.1rem;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.55);
+        }
+
+        .toggle-copy {
+            flex: 1;
+        }
+
+        .toggle-copy p {
+            margin: 0.35rem 0 0;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            width: 62px;
+            height: 36px;
+            flex-shrink: 0;
+        }
+
+        .switch input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .slider {
+            position: absolute;
+            inset: 0;
+            border-radius: 999px;
+            background: #b7ada0;
+            transition: background 0.2s ease;
+        }
+
+        .slider::before {
+            content: "";
+            position: absolute;
+            width: 28px;
+            height: 28px;
+            left: 4px;
+            top: 4px;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            transition: transform 0.2s ease;
+        }
+
+        .switch input:checked + .slider {
+            background: var(--accent);
+        }
+
+        .switch input:checked + .slider::before {
+            transform: translateX(26px);
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <header>
+        <div>
+            <h1>Operations</h1>
+            <p>Administrative controls for maintenance mode and future GTFS/settings tools.</p>
+        </div>
+        <form method="post" asp-page-handler="Logout">
+            <button type="submit" class="secondary">Sign Out</button>
+        </form>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+    {
+        <div class="notice">@Model.StatusMessage</div>
+    }
+
+    @if (Model.IsGtfsImportRunning)
+    {
+        <div class="running">GTFS import in progress: @Model.GtfsProgressLabel. This page will refresh automatically.</div>
+        <script>
+            setTimeout(function () { window.location.reload(); }, 3000);
+        </script>
+    }
+
+    <section>
+        <h2>Maintenance Mode</h2>
+        <p>When enabled, public HTTP endpoints and WebSocket upgrades are blocked with <code>503 Service Unavailable</code>. The admin area remains available.</p>
+        <form method="post" asp-page-handler="ToggleMaintenance">
+            <div class="toggle-row">
+                <div class="toggle-copy">
+                    <strong>Maintenance</strong>
+                    <p>Current state: <span class="status">@(Model.IsMaintenanceMode ? "On" : "Off")</span></p>
+                </div>
+                <label class="switch" aria-label="Toggle maintenance mode">
+                    <input asp-for="IsMaintenanceMode" type="checkbox" onchange="this.form.submit()" />
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </form>
+    </section>
+
+    <section>
+        <h2>Polling</h2>
+        <p>Control the background Auckland Transport polling worker. Disabling polling stops new realtime ingestions until it is enabled again.</p>
+        <form method="post" asp-page-handler="TogglePolling">
+            <div class="toggle-row">
+                <div class="toggle-copy">
+                    <strong>AT Polling</strong>
+                    <p>Current state: <span class="status">@(Model.IsPollingEnabled ? "On" : "Off")</span></p>
+                </div>
+                <label class="switch" aria-label="Toggle AT polling">
+                    <input asp-for="IsPollingEnabled" type="checkbox" onchange="this.form.submit()" />
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </form>
+    </section>
+
+    <section>
+        <h2>GTFS Upload</h2>
+        <p>Upload a GTFS static archive as a <code>.zip</code>. The archive is validated and imported into the database in the background. No local GTFS file set is retained after import.</p>
+        <form method="post" enctype="multipart/form-data" asp-page-handler="UploadGtfs">
+            <label asp-for="GtfsArchive">GTFS archive</label>
+            <input asp-for="GtfsArchive" type="file" accept=".zip,application/zip" />
+            <div class="actions">
+                <button type="submit">Upload and Import</button>
+            </div>
+        </form>
+
+        <dl>
+            <dt>Last file</dt>
+            <dd>@(Model.LastGtfsUploadFileName ?? "No uploads yet")</dd>
+
+            <dt>Last uploaded</dt>
+            <dd>@(Model.LastGtfsUploadAtUtc?.ToString("u") ?? "Not available")</dd>
+
+            <dt>Last status</dt>
+            <dd>@Model.GtfsProgressLabel</dd>
+
+            <dt>Source version</dt>
+            <dd>@(Model.LastGtfsSourceVersion ?? "Not available")</dd>
+
+            <dt>Last error</dt>
+            <dd>@(Model.LastGtfsImportError ?? "None")</dd>
+        </dl>
+    </section>
+</div>
+</body>
+</html>

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TransitAnalyticsAPI.Clients.AucklandTransport;
 using TransitAnalyticsAPI.Services;
@@ -6,21 +7,19 @@ namespace TransitAnalyticsAPI.Controllers;
 
 [ApiController]
 [Route("debug")]
+[Authorize(Policy = "AdminOnly")]
 public class DebugController : ControllerBase
 {
     private readonly IAucklandTransportClient _aucklandTransportClient;
-    private readonly IGtfsImportService _gtfsImportService;
     private readonly IVehiclePositionIngestionService _vehiclePositionIngestionService;
     private readonly IVehiclePositionMapper _vehiclePositionMapper;
 
     public DebugController(
         IAucklandTransportClient aucklandTransportClient,
-        IGtfsImportService gtfsImportService,
         IVehiclePositionIngestionService vehiclePositionIngestionService,
         IVehiclePositionMapper vehiclePositionMapper)
     {
         _aucklandTransportClient = aucklandTransportClient;
-        _gtfsImportService = gtfsImportService;
         _vehiclePositionIngestionService = vehiclePositionIngestionService;
         _vehiclePositionMapper = vehiclePositionMapper;
     }
@@ -56,11 +55,4 @@ public class DebugController : ControllerBase
         return Ok(result);
     }
 
-    [HttpPost("gtfs/import-routes-trips")]
-    public async Task<IActionResult> ImportRoutesAndTrips(CancellationToken cancellationToken)
-    {
-        var result = await _gtfsImportService.ImportRoutesAndTripsAsync(cancellationToken);
-
-        return Ok(result);
-    }
 }

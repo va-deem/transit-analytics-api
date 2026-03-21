@@ -9,6 +9,8 @@ public class AppDbContext : DbContext
     {
     }
 
+    public DbSet<AdminSettings> AdminSettings => Set<AdminSettings>();
+
     public DbSet<GtfsImportRun> GtfsImportRuns => Set<GtfsImportRun>();
 
     public DbSet<GtfsRoute> GtfsRoutes => Set<GtfsRoute>();

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TransitAnalyticsAPI.Persistence;
@@ -11,9 +12,11 @@ using TransitAnalyticsAPI.Persistence;
 namespace TransitAnalyticsAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260321063732_AddAdminGtfsUploadStatus")]
+    partial class AddAdminGtfsUploadStatus
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -34,10 +37,6 @@ namespace TransitAnalyticsAPI.Migrations
                     b.Property<bool>("IsMaintenanceMode")
                         .HasColumnType("boolean")
                         .HasColumnName("is_maintenance_mode");
-
-                    b.Property<bool>("IsPollingEnabled")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_polling_enabled");
 
                     b.Property<string>("LastGtfsImportError")
                         .HasColumnType("text")

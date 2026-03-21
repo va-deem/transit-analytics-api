@@ -28,7 +28,7 @@ Realtime:
 - Auckland Transport `vehiclelocations` feed
 
 Static GTFS:
-- local files under `data/gtfs-static/`
+- uploaded through the admin interface as a `.zip` archive and imported into PostgreSQL
 
 ## Local Setup
 
@@ -83,18 +83,13 @@ dotnet ef database update
 
 ## GTFS Static Import
 
-Routes and trips can be imported from the local GTFS static files with:
+Routes, trips, stops, shapes, and stop times are imported through the protected admin UI.
 
-Use the HTTP base URL printed by `dotnet run`.
+Use:
+- `/admin/login`
+- `/admin/settings`
 
-```bash
-curl -X POST http://localhost:<port>/debug/gtfs/import-routes-trips
-```
-
-This imports:
-- `routes.txt`
-- `trips.txt`
-- `feed_info.txt`
+Upload a GTFS `.zip` archive there and the backend will validate it and run the import in the background.
 
 ## Realtime Ingestion
 

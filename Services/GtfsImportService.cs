@@ -12,17 +12,16 @@ public class GtfsImportService : IGtfsImportService
     private const int BatchSize = 5000;
 
     private readonly AppDbContext _appDbContext;
-    private readonly IWebHostEnvironment _environment;
 
-    public GtfsImportService(AppDbContext appDbContext, IWebHostEnvironment environment)
+    public GtfsImportService(AppDbContext appDbContext)
     {
         _appDbContext = appDbContext;
-        _environment = environment;
     }
 
-    public async Task<GtfsImportResult> ImportRoutesAndTripsAsync(CancellationToken cancellationToken = default)
+    public async Task<GtfsImportResult> ImportRoutesAndTripsAsync(
+        string gtfsDirectory,
+        CancellationToken cancellationToken = default)
     {
-        var gtfsDirectory = Path.Combine(_environment.ContentRootPath, "data", "gtfs-static");
         var feedInfoPath = Path.Combine(gtfsDirectory, "feed_info.txt");
         var routesPath = Path.Combine(gtfsDirectory, "routes.txt");
         var shapesPath = Path.Combine(gtfsDirectory, "shapes.txt");
@@ -73,6 +72,7 @@ public class GtfsImportService : IGtfsImportService
             importRunToFinalize.CompletedAtUtc = DateTime.UtcNow;
 
             await _appDbContext.SaveChangesAsync(cancellationToken);
+            await DeleteInactiveImportRunsAsync(importRun.Id, cancellationToken);
 
             return new GtfsImportResult
             {
@@ -243,6 +243,43 @@ public class GtfsImportService : IGtfsImportService
         }
 
         return importedCount;
+    }
+
+    private async Task DeleteInactiveImportRunsAsync(long activeImportRunId, CancellationToken cancellationToken)
+    {
+        var inactiveImportRunIds = await _appDbContext.GtfsImportRuns
+            .Where(run => !run.IsActive && run.Id != activeImportRunId)
+            .Select(run => run.Id)
+            .ToListAsync(cancellationToken);
+
+        if (inactiveImportRunIds.Count == 0)
+        {
+            return;
+        }
+
+        await _appDbContext.GtfsRoutes
+            .Where(route => inactiveImportRunIds.Contains(route.ImportRunId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _appDbContext.GtfsShapePoints
+            .Where(shapePoint => inactiveImportRunIds.Contains(shapePoint.ImportRunId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _appDbContext.GtfsStops
+            .Where(stop => inactiveImportRunIds.Contains(stop.ImportRunId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _appDbContext.GtfsStopTimes
+            .Where(stopTime => inactiveImportRunIds.Contains(stopTime.ImportRunId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _appDbContext.GtfsTrips
+            .Where(trip => inactiveImportRunIds.Contains(trip.ImportRunId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _appDbContext.GtfsImportRuns
+            .Where(run => inactiveImportRunIds.Contains(run.Id))
+            .ExecuteDeleteAsync(cancellationToken);
     }
 
     private async Task<int> SaveBatchAsync<TEntity>(

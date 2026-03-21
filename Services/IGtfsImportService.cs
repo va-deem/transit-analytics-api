@@ -2,5 +2,5 @@ namespace TransitAnalyticsAPI.Services;
 
 public interface IGtfsImportService
 {
-    Task<GtfsImportResult> ImportRoutesAndTripsAsync(CancellationToken cancellationToken = default);
+    Task<GtfsImportResult> ImportRoutesAndTripsAsync(string gtfsDirectory, CancellationToken cancellationToken = default);
 }

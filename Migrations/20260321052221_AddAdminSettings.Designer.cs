@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TransitAnalyticsAPI.Persistence;
@@ -11,9 +12,11 @@ using TransitAnalyticsAPI.Persistence;
 namespace TransitAnalyticsAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260321052221_AddAdminSettings")]
+    partial class AddAdminSettings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -34,30 +37,6 @@ namespace TransitAnalyticsAPI.Migrations
                     b.Property<bool>("IsMaintenanceMode")
                         .HasColumnType("boolean")
                         .HasColumnName("is_maintenance_mode");
-
-                    b.Property<bool>("IsPollingEnabled")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_polling_enabled");
-
-                    b.Property<string>("LastGtfsImportError")
-                        .HasColumnType("text")
-                        .HasColumnName("last_gtfs_import_error");
-
-                    b.Property<string>("LastGtfsImportStatus")
-                        .HasColumnType("text")
-                        .HasColumnName("last_gtfs_import_status");
-
-                    b.Property<string>("LastGtfsSourceVersion")
-                        .HasColumnType("text")
-                        .HasColumnName("last_gtfs_source_version");
-
-                    b.Property<DateTime?>("LastGtfsUploadAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_gtfs_upload_at_utc");
-
-                    b.Property<string>("LastGtfsUploadFileName")
-                        .HasColumnType("text")
-                        .HasColumnName("last_gtfs_upload_file_name");
 
                     b.HasKey("Id")
                         .HasName("pk_admin_settings");

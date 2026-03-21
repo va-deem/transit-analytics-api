@@ -1,4 +1,5 @@
 using TransitAnalyticsAPI.Services;
+using TransitAnalyticsAPI.Admin.Services;
 
 namespace TransitAnalyticsAPI.Background;
 
@@ -7,32 +8,41 @@ public class VehiclePollingService : BackgroundService
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(30);
 
     private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IPollingRuntimeState _pollingRuntimeState;
     private readonly ILogger<VehiclePollingService> _logger;
 
     public VehiclePollingService(
         IServiceScopeFactory serviceScopeFactory,
+        IPollingRuntimeState pollingRuntimeState,
         ILogger<VehiclePollingService> logger)
     {
         _serviceScopeFactory = serviceScopeFactory;
+        _pollingRuntimeState = pollingRuntimeState;
         _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(PollInterval);
-
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            await RunIngestionAsync(stoppingToken);
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                await _pollingRuntimeState.WaitUntilPollingEnabledAsync(stoppingToken);
+                await RunIngestionAsync(stoppingToken);
 
-            try
-            {
-                await timer.WaitForNextTickAsync(stoppingToken);
+                try
+                {
+                    await _pollingRuntimeState.WaitForPollingStateChangeOrTimeoutAsync(PollInterval, stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
             }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Host shutdown should stop the worker quietly.
         }
     }
 
