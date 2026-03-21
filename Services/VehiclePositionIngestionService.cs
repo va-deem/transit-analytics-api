@@ -103,7 +103,7 @@ public class VehiclePositionIngestionService : IVehiclePositionIngestionService
                     return false;
                 }
 
-                return string.IsNullOrWhiteSpace(VehicleLatestQueryService.MapVehicleType(route.RouteType)) == false;
+                return string.IsNullOrWhiteSpace(VehicleTypeMapper.Map(route.RouteType)) == false;
             })
             .ToList();
     }

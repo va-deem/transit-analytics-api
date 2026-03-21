@@ -53,7 +53,7 @@ public class RoutesController : ControllerBase
                 RouteShortName = route.RouteShortName,
                 RouteLongName = route.RouteLongName,
                 RouteType = route.RouteType,
-                VehicleType = VehicleLatestQueryService.MapVehicleType(route.RouteType),
+                VehicleType = VehicleTypeMapper.Map(route.RouteType),
                 RouteColor = route.RouteColor,
                 LatestVehicleCount = 0
             })
