@@ -32,6 +32,7 @@ builder.Services.AddScoped<IAdminSettingsService, AdminSettingsService>();
 builder.Services.AddScoped<IGtfsUploadService, GtfsUploadService>();
 builder.Services.AddSingleton<IAdminPasswordService, AdminPasswordService>();
 builder.Services.AddScoped<IGtfsImportService, GtfsImportService>();
+builder.Services.AddScoped<IVehicleHistoryQueryService, VehicleHistoryQueryService>();
 builder.Services.AddScoped<IVehicleLatestQueryService, VehicleLatestQueryService>();
 builder.Services.AddScoped<IVehiclePositionMapper, VehiclePositionMapper>();
 builder.Services.AddScoped<IVehiclePositionIngestionService, VehiclePositionIngestionService>();

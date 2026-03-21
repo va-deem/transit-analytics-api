@@ -27,6 +27,15 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<VehiclePosition>()
+            .HasIndex(vehiclePosition => new { vehiclePosition.VehicleId, vehiclePosition.RecordedAtUtc });
+
+        modelBuilder.Entity<VehiclePosition>()
+            .HasIndex(vehiclePosition => vehiclePosition.RecordedAtUtc);
+
+        modelBuilder.Entity<VehiclePosition>()
+            .HasIndex(vehiclePosition => new { vehiclePosition.RouteId, vehiclePosition.RecordedAtUtc });
+
         modelBuilder.Entity<GtfsImportRun>()
             .HasMany(importRun => importRun.Routes)
             .WithOne(route => route.ImportRun)
