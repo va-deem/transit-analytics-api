@@ -77,6 +77,7 @@ public class VehiclesController : ControllerBase
     public async Task<ActionResult<List<VehicleHistoryPointDto>>> GetRange(
         [FromQuery] DateTimeOffset? start,
         [FromQuery] DateTimeOffset? end,
+        [FromQuery] string? routeId,
         CancellationToken cancellationToken)
     {
         var validationError = ValidateTimeRange(start, end, MaxVehicleRangeSpan, "range");
@@ -88,6 +89,7 @@ public class VehiclesController : ControllerBase
         var history = await _vehicleHistoryQueryService.GetRangeAsync(
             start!.Value.UtcDateTime,
             end!.Value.UtcDateTime,
+            routeId,
             MaxVehicleRangePoints,
             cancellationToken);
 

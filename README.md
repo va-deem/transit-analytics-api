@@ -19,6 +19,7 @@ The backend:
 
 - `GET /health`
 - `GET /vehicles/latest`
+- `GET /vehicles/range?start=&end=&routeId=`
 - hosted polling worker that ingests vehicle positions every 30 seconds
 - manual GTFS routes/trips import endpoint for development
 

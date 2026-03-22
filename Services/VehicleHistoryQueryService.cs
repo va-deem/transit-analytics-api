@@ -53,6 +53,7 @@ public class VehicleHistoryQueryService : IVehicleHistoryQueryService
     public async Task<List<VehicleHistoryPointDto>> GetRangeAsync(
         DateTime startUtc,
         DateTime endUtc,
+        string? routeId,
         int maxResults,
         CancellationToken cancellationToken = default)
     {
@@ -60,7 +61,8 @@ public class VehicleHistoryQueryService : IVehicleHistoryQueryService
             .AsNoTracking()
             .Where(vehiclePosition =>
                 vehiclePosition.RecordedAtUtc >= startUtc &&
-                vehiclePosition.RecordedAtUtc <= endUtc)
+                vehiclePosition.RecordedAtUtc <= endUtc &&
+                (string.IsNullOrWhiteSpace(routeId) || vehiclePosition.RouteId == routeId))
             .OrderBy(vehiclePosition => vehiclePosition.RecordedAtUtc)
             .ThenBy(vehiclePosition => vehiclePosition.Id)
             .Select(vehiclePosition => new VehiclePositionQueryRow
