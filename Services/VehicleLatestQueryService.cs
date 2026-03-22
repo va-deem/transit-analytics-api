@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using TransitAnalyticsAPI.Configuration;
 using TransitAnalyticsAPI.Models.Dto;
 using TransitAnalyticsAPI.Persistence;
 
@@ -8,19 +10,25 @@ public class VehicleLatestQueryService : IVehicleLatestQueryService
 {
     private readonly AppDbContext _appDbContext;
     private readonly IVehicleMetadataLookupService _vehicleMetadataLookupService;
+    private readonly TimeSpan _latestPositionMaxAge;
 
     public VehicleLatestQueryService(
         AppDbContext appDbContext,
-        IVehicleMetadataLookupService vehicleMetadataLookupService)
+        IVehicleMetadataLookupService vehicleMetadataLookupService,
+        IOptions<VehicleOptions> vehicleOptions)
     {
         _appDbContext = appDbContext;
         _vehicleMetadataLookupService = vehicleMetadataLookupService;
+        _latestPositionMaxAge = TimeSpan.FromMinutes(Math.Max(1, vehicleOptions.Value.LatestPositionMaxAgeMinutes));
     }
 
     public async Task<List<VehicleLatestDto>> GetLatestAsync(CancellationToken cancellationToken = default)
     {
+        var cutoffUtc = DateTime.UtcNow - _latestPositionMaxAge;
+
         var latestPositions = await _appDbContext.VehiclePositions
             .AsNoTracking()
+            .Where(vehiclePosition => vehiclePosition.RecordedAtUtc >= cutoffUtc)
             .GroupBy(vehiclePosition => vehiclePosition.VehicleId)
             .Select(group => group
                 .OrderByDescending(vehiclePosition => vehiclePosition.RecordedAtUtc)

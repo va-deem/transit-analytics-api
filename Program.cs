@@ -20,6 +20,8 @@ builder.Services.Configure<AdminOptions>(
     builder.Configuration.GetSection(AdminOptions.SectionName));
 builder.Services.Configure<AucklandTransportOptions>(
     builder.Configuration.GetSection(AucklandTransportOptions.SectionName));
+builder.Services.Configure<VehicleOptions>(
+    builder.Configuration.GetSection(VehicleOptions.SectionName));
 builder.Services.AddSingleton(Channel.CreateBounded<GtfsUploadJob>(new BoundedChannelOptions(1)
 {
     FullMode = BoundedChannelFullMode.DropWrite,

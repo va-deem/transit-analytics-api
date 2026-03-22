@@ -95,6 +95,9 @@ Upload a GTFS `.zip` archive there and the backend will validate it and run the 
 
 The app runs a hosted background worker that polls Auckland Transport every 30 seconds and saves vehicle positions into PostgreSQL.
 
+Vehicles in `GET /vehicles/latest` and websocket snapshots are filtered to recent positions only.
+The default freshness window is 5 minutes and can be changed with `Vehicles:LatestPositionMaxAgeMinutes`.
+
 ## Notes
 
 - The frontend should consume this backend, not Auckland Transport directly.
