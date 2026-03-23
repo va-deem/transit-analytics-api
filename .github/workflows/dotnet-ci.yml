@@ -8,7 +8,6 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -16,10 +15,65 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 9.0.x
       - name: Restore dependencies
         run: dotnet restore
       - name: Build
         run: dotnet build --no-restore
       - name: Test
         run: dotnet test --no-build --verbosity normal
+      - name: Publish
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: dotnet publish -c Release -o publish
+      - name: Upload publish artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: publish
+          path: publish/
+
+  deploy:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download publish artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: publish
+          path: publish/
+      - name: Stop service
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 209.38.26.216
+          username: deploy
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            sudo install -m 600 /dev/null /etc/transit-analytics-api.env
+            sudo bash -c 'cat > /etc/transit-analytics-api.env <<EOF
+            ConnectionStrings__DefaultConnection=${{ secrets.PROD_CONNECTION_STRING }}
+            AucklandTransport__SubscriptionKey=${{ secrets.PROD_AT_SUBSCRIPTION_KEY }}
+            Admin__PasswordHash=${{ secrets.PROD_ADMIN_PASSWORD_HASH }}
+            ASPNETCORE_ENVIRONMENT=Production
+            EOF'
+            sudo systemctl stop transit-analytics-api
+            rm -rf /home/deploy/TransitAnalyticsAPI/*
+      - name: Copy files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 209.38.26.216
+          username: deploy
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "publish/*"
+          target: "/home/deploy/TransitAnalyticsAPI/"
+          strip_components: 1
+      - name: Start service
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 209.38.26.216
+          username: deploy
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            sudo systemctl restart transit-analytics-api
+            sudo systemctl status transit-analytics-api --no-pager
