@@ -37,6 +37,7 @@ builder.Services.AddScoped<IGtfsImportService, GtfsImportService>();
 builder.Services.AddScoped<IVehicleMetadataLookupService, VehicleMetadataLookupService>();
 builder.Services.AddScoped<IVehicleHistoryQueryService, VehicleHistoryQueryService>();
 builder.Services.AddScoped<IVehicleLatestQueryService, VehicleLatestQueryService>();
+builder.Services.AddScoped<IVehicleRetentionService, VehicleRetentionService>();
 builder.Services.AddScoped<IVehiclePositionMapper, VehiclePositionMapper>();
 builder.Services.AddScoped<IVehiclePositionIngestionService, VehiclePositionIngestionService>();
 builder.Services.AddScoped<IVehicleSnapshotBroadcastService, VehicleSnapshotBroadcastService>();
@@ -45,6 +46,7 @@ builder.Services.AddSingleton<IWebSocketSubscriptionManager, WebSocketSubscripti
 builder.Services.AddHostedService<AdminSettingsBootstrapService>();
 builder.Services.AddHostedService<GtfsUploadBackgroundService>();
 builder.Services.AddHostedService<VehiclePollingService>();
+builder.Services.AddHostedService<VehicleRetentionCleanupService>();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
         .UseSnakeCaseNamingConvention());

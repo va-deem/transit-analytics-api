@@ -98,6 +98,7 @@ The app runs a hosted background worker that polls Auckland Transport every 30 s
 
 Vehicles in `GET /vehicles/latest` and websocket snapshots are filtered to recent positions only.
 The default freshness window is 5 minutes and can be changed with `Vehicles:LatestPositionMaxAgeMinutes`.
+Saved vehicle history is retained for 7 days by default and cleaned up by a daily background job using `Vehicles:HistoryRetentionDays`.
 
 ## Notes
 
