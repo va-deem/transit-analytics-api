@@ -17,11 +17,31 @@ The backend:
 
 ## Current Features
 
-- `GET /health`
-- `GET /vehicles/latest`
-- `GET /vehicles/range?start=&end=&routeId=`
-- hosted polling worker that ingests vehicle positions every 30 seconds
-- manual GTFS routes/trips import endpoint for development
+### Public functionality
+
+- health endpoint with maintenance mode visibility
+- live vehicle snapshot endpoint backed by persisted data
+- historical vehicle playback for a single vehicle in a bounded time window
+- range playback for all vehicles in a bounded time window
+- optional route-scoped range playback filtering
+- route listing enriched with current active vehicle counts
+- route-scoped live vehicle snapshots
+- route shape and stop endpoints based on imported GTFS data
+- websocket live snapshot delivery for all vehicles and route-scoped subscriptions
+
+### Admin functionality
+
+- password-protected admin area
+- maintenance mode toggle for public HTTP and websocket access
+- polling enable/disable control
+- GTFS static `.zip` upload through the admin UI
+- background GTFS import with persisted status reporting
+
+### Background functionality
+
+- hosted polling worker that ingests Auckland Transport vehicle positions every 30 seconds
+- background GTFS import processing
+- daily vehicle history cleanup at `03:00` Auckland time
 
 ## Data Sources
 
@@ -62,7 +82,21 @@ Set database connection string:
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=transit_analytics;Username=postgres"
 ```
 
+Set admin password hash:
+
+```bash
+dotnet user-secrets set "Admin:PasswordHash" "YOUR_HASH"
+```
+
 ### 3. Run the app
+
+Apply migrations first:
+
+```bash
+dotnet ef database update
+```
+
+Then start the app:
 
 ```bash
 dotnet run
@@ -98,7 +132,41 @@ The app runs a hosted background worker that polls Auckland Transport every 30 s
 
 Vehicles in `GET /vehicles/latest` and websocket snapshots are filtered to recent positions only.
 The default freshness window is 5 minutes and can be changed with `Vehicles:LatestPositionMaxAgeMinutes`.
-Saved vehicle history is retained for 7 days by default and cleaned up by a daily background job using `Vehicles:HistoryRetentionDays`.
+Saved vehicle history is retained for 7 days by default and cleaned up at `03:00` Auckland time by a daily background job using `Vehicles:HistoryRetentionDays`.
+
+## Route and Playback Data
+
+Imported GTFS static data is used to enrich realtime vehicle responses and to provide route context for the client.
+
+Current route-related functionality:
+- route list retrieval
+- live vehicle counts per route
+- route shape retrieval
+- route stop retrieval
+
+Current playback functionality:
+- single-vehicle history in a bounded time window
+- range playback in a bounded time window
+- optional route-scoped range playback filtering
+
+Playback endpoints enforce server-side time-window limits to keep result sizes bounded.
+
+## Admin Area
+
+The backend includes a small built-in admin area under `/admin/*`.
+
+Current admin capabilities:
+- sign in with a configured password hash
+- enable or disable maintenance mode
+- enable or disable polling
+- upload a GTFS `.zip` archive
+- monitor GTFS import status from the settings page
+
+When maintenance mode is enabled:
+- `/health` remains available
+- admin routes remain available
+- public API endpoints return `503 Service Unavailable`
+- `/ws/vehicles` rejects websocket upgrades with `503`
 
 ## Notes
 
