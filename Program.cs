@@ -94,11 +94,22 @@ var app = builder.Build();
 var internalApiOptions = app.Services
     .GetRequiredService<Microsoft.Extensions.Options.IOptions<InternalApiOptions>>()
     .Value;
+var logger = app.Services
+    .GetRequiredService<ILoggerFactory>()
+    .CreateLogger("Startup");
 
 if (app.Environment.IsProduction() && string.IsNullOrWhiteSpace(internalApiOptions.Secret))
 {
     throw new InvalidOperationException(
         $"Configuration value '{InternalApiOptions.SectionName}:Secret' is required in production.");
+}
+
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    logger.LogInformation("Applying database migrations.");
+    await dbContext.Database.MigrateAsync();
+    logger.LogInformation("Database migrations applied.");
 }
 
 if (app.Environment.IsDevelopment())
