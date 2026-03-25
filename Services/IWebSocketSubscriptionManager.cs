@@ -4,7 +4,7 @@ namespace TransitAnalyticsAPI.Services;
 
 public interface IWebSocketSubscriptionManager
 {
-    Task AddConnectionAsync(WebSocket socket, CancellationToken cancellationToken = default);
+    Task<bool> AddConnectionAsync(WebSocket socket, CancellationToken cancellationToken = default);
 
     Task RemoveConnectionAsync(WebSocket socket, CancellationToken cancellationToken = default);
 
@@ -15,4 +15,6 @@ public interface IWebSocketSubscriptionManager
     IReadOnlyList<string> GetSubscribedChannels();
 
     IReadOnlyList<WebSocket> GetSubscribers(string channel);
+
+    int GetConnectionCount();
 }

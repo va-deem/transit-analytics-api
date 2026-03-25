@@ -26,6 +26,8 @@ builder.Services.Configure<VehicleOptions>(
     builder.Configuration.GetSection(VehicleOptions.SectionName));
 builder.Services.Configure<InternalApiOptions>(
     builder.Configuration.GetSection(InternalApiOptions.SectionName));
+builder.Services.Configure<VehicleWebSocketOptions>(
+    builder.Configuration.GetSection(VehicleWebSocketOptions.SectionName));
 builder.Services.AddSingleton(Channel.CreateBounded<GtfsUploadJob>(new BoundedChannelOptions(1)
 {
     FullMode = BoundedChannelFullMode.DropWrite,
@@ -131,6 +133,13 @@ app.UseHttpsRedirection();
 
 app.Map("/ws/vehicles", async context =>
 {
+    var webSocketOptions = context.RequestServices
+        .GetRequiredService<Microsoft.Extensions.Options.IOptions<VehicleWebSocketOptions>>()
+        .Value;
+    var requestLogger = context.RequestServices
+        .GetRequiredService<ILoggerFactory>()
+        .CreateLogger("VehicleWebSocketEndpoint");
+
     var adminSettingsService = context.RequestServices.GetRequiredService<IAdminSettingsService>();
     if (await adminSettingsService.IsMaintenanceModeEnabledAsync(context.RequestAborted))
     {
@@ -149,6 +158,20 @@ app.Map("/ws/vehicles", async context =>
         return;
     }
 
+    if (!IsAllowedWebSocketOrigin(context, webSocketOptions))
+    {
+        requestLogger.LogWarning(
+            "Rejected websocket request from unexpected origin {Origin}.",
+            context.Request.Headers.Origin.ToString());
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await context.Response.WriteAsJsonAsync(new
+        {
+            error = "forbidden",
+            message = "The request origin is not allowed."
+        });
+        return;
+    }
+
     var socket = await context.WebSockets.AcceptWebSocketAsync();
     using var scope = app.Services.CreateScope();
     var webSocketService = scope.ServiceProvider.GetRequiredService<IVehicleWebSocketService>();
@@ -160,3 +183,19 @@ app.MapRazorPages();
 app.MapControllers();
 
 app.Run();
+
+static bool IsAllowedWebSocketOrigin(HttpContext context, VehicleWebSocketOptions options)
+{
+    if (options.AllowedOrigins.Length == 0)
+    {
+        return true;
+    }
+
+    if (!context.Request.Headers.TryGetValue("Origin", out var originValues))
+    {
+        return false;
+    }
+
+    var origin = originValues.ToString();
+    return options.AllowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase);
+}

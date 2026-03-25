@@ -6,11 +6,22 @@ namespace TransitAnalyticsAPI.Services;
 public class WebSocketSubscriptionManager : IWebSocketSubscriptionManager
 {
     private readonly ConcurrentDictionary<WebSocket, string?> _subscriptions = new();
+    private readonly int _maxConcurrentConnections;
 
-    public Task AddConnectionAsync(WebSocket socket, CancellationToken cancellationToken = default)
+    public WebSocketSubscriptionManager(Microsoft.Extensions.Options.IOptions<TransitAnalyticsAPI.Configuration.VehicleWebSocketOptions> options)
     {
-        _subscriptions.TryAdd(socket, null);
-        return Task.CompletedTask;
+        _maxConcurrentConnections = Math.Max(1, options.Value.MaxConcurrentConnections);
+    }
+
+    public Task<bool> AddConnectionAsync(WebSocket socket, CancellationToken cancellationToken = default)
+    {
+        if (_subscriptions.Count >= _maxConcurrentConnections)
+        {
+            return Task.FromResult(false);
+        }
+
+        var added = _subscriptions.TryAdd(socket, null);
+        return Task.FromResult(added);
     }
 
     public Task RemoveConnectionAsync(WebSocket socket, CancellationToken cancellationToken = default)
@@ -50,4 +61,6 @@ public class WebSocketSubscriptionManager : IWebSocketSubscriptionManager
             .Select(entry => entry.Key)
             .ToList();
     }
+
+    public int GetConnectionCount() => _subscriptions.Count;
 }

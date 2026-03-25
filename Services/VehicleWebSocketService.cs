@@ -11,18 +11,34 @@ public class VehicleWebSocketService : IVehicleWebSocketService
 
     private readonly IVehicleLatestQueryService _vehicleLatestQueryService;
     private readonly IWebSocketSubscriptionManager _subscriptionManager;
+    private readonly ILogger<VehicleWebSocketService> _logger;
 
     public VehicleWebSocketService(
         IVehicleLatestQueryService vehicleLatestQueryService,
-        IWebSocketSubscriptionManager subscriptionManager)
+        IWebSocketSubscriptionManager subscriptionManager,
+        ILogger<VehicleWebSocketService> logger)
     {
         _vehicleLatestQueryService = vehicleLatestQueryService;
         _subscriptionManager = subscriptionManager;
+        _logger = logger;
     }
 
     public async Task HandleConnectionAsync(WebSocket socket, CancellationToken cancellationToken = default)
     {
-        await _subscriptionManager.AddConnectionAsync(socket, cancellationToken);
+        var accepted = await _subscriptionManager.AddConnectionAsync(socket, cancellationToken);
+        if (!accepted)
+        {
+            _logger.LogWarning("Rejected websocket connection because the connection cap was reached.");
+            await socket.CloseAsync(
+                WebSocketCloseStatus.PolicyViolation,
+                "Connection limit reached.",
+                cancellationToken);
+            return;
+        }
+
+        _logger.LogInformation(
+            "Accepted websocket connection. Active connections: {ConnectionCount}.",
+            _subscriptionManager.GetConnectionCount());
 
         var buffer = new byte[8 * 1024];
 
@@ -51,23 +67,29 @@ public class VehicleWebSocketService : IVehicleWebSocketService
                 var request = JsonSerializer.Deserialize<VehicleSubscriptionRequestDto>(message, JsonSerializerOptions);
                 if (request is null || string.IsNullOrWhiteSpace(request.Type) || string.IsNullOrWhiteSpace(request.Channel))
                 {
+                    _logger.LogDebug("Ignored malformed websocket message.");
                     continue;
                 }
 
                 if (string.Equals(request.Type, "subscribe", StringComparison.OrdinalIgnoreCase))
                 {
                     await _subscriptionManager.SubscribeAsync(socket, request.Channel, cancellationToken);
+                    _logger.LogInformation("Websocket subscribed to channel {Channel}.", request.Channel);
                     await SendSnapshotAsync(socket, request.Channel, cancellationToken);
                 }
                 else if (string.Equals(request.Type, "unsubscribe", StringComparison.OrdinalIgnoreCase))
                 {
                     await _subscriptionManager.UnsubscribeAsync(socket, request.Channel, cancellationToken);
+                    _logger.LogInformation("Websocket unsubscribed from channel {Channel}.", request.Channel);
                 }
             }
         }
         finally
         {
             await _subscriptionManager.RemoveConnectionAsync(socket, cancellationToken);
+            _logger.LogInformation(
+                "Closed websocket connection. Active connections: {ConnectionCount}.",
+                _subscriptionManager.GetConnectionCount());
 
             if (socket.State != WebSocketState.Closed && socket.State != WebSocketState.Aborted)
             {
