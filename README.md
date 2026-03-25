@@ -2,6 +2,8 @@
 
 ASP.NET Core backend for ingesting Auckland Transport vehicle data, storing historical snapshots, and exposing playback-oriented APIs.
 
+Live demo: [at-analytics.plannerapp.nz](https://at-analytics.plannerapp.nz)
+
 ## What This App Does
 
 The app:
@@ -16,6 +18,7 @@ The app:
 
 - C#
 - ASP.NET Core
+- Razor Pages
 - PostgreSQL
 - Entity Framework Core
 - Hosted background services
