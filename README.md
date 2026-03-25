@@ -1,108 +1,166 @@
 # Transit Analytics API
 
-ASP.NET Core backend for an Auckland Transport map application.
+ASP.NET Core backend for ingesting Auckland Transport vehicle data, storing historical snapshots, and exposing playback-oriented APIs.
 
-The backend:
-- fetches realtime vehicle positions from Auckland Transport
-- stores historical snapshots in PostgreSQL
-- exposes backend-owned APIs for the frontend
-- imports GTFS static route and trip data for enrichment
+## What This App Does
+
+The app:
+- polls Auckland Transport realtime vehicle positions
+- stores vehicle history in PostgreSQL
+- imports GTFS static data for route/trip enrichment
+- exposes HTTP APIs for live and historical map views
+- exposes a WebSocket endpoint for live snapshots
+- includes a small built-in admin area for operational controls
 
 ## Stack
 
 - C#
-- ASP.NET Core Web API
+- ASP.NET Core
 - PostgreSQL
 - Entity Framework Core
+- Hosted background services
 
-## Current Features
+## Features
 
-### Public functionality
+### Public/backend API
 
-- health endpoint with maintenance mode visibility
-- live vehicle snapshot endpoint backed by persisted data
-- historical vehicle playback for a single vehicle in a bounded time window
-- range playback for all vehicles in a bounded time window
-- optional route-scoped range playback filtering
-- route listing enriched with current active vehicle counts
-- route-scoped live vehicle snapshots
-- route shape and stop endpoints based on imported GTFS data
-- websocket live snapshot delivery for all vehicles and route-scoped subscriptions
+- `GET /health`
+- `GET /vehicles/latest`
+- `GET /vehicles/{id}/history?start=&end=`
+- `GET /vehicles/range?start=&end=`
+- `GET /vehicles/range?start=&end=&routeId=`
+- `GET /routes`
+- `GET /routes/{id}/vehicles/latest`
+- `GET /routes/{id}/shape`
+- `GET /routes/{id}/stops`
+- `/ws/vehicles` for live snapshots and route-scoped subscriptions
 
-### Admin functionality
+### Admin
 
-- password-protected admin area
-- maintenance mode toggle for public HTTP and websocket access
-- polling enable/disable control
-- GTFS static `.zip` upload through the admin UI
-- background GTFS import with persisted status reporting
+- `/admin/login`
+- `/admin/settings`
+- maintenance mode toggle
+- polling enable/disable toggle
+- GTFS `.zip` upload and background import
+- GTFS import status visibility
 
-### Background functionality
+### Background services
 
-- hosted polling worker that ingests Auckland Transport vehicle positions every 30 seconds
-- background GTFS import processing
-- daily vehicle history cleanup at `03:00` Auckland time
+- vehicle polling every 30 seconds
+- GTFS upload/import worker
+- daily history retention cleanup
+- startup EF Core migration application
 
-## Data Sources
+## Local Development
 
-Realtime:
-- Auckland Transport `vehiclelocations` feed
+### Prerequisites
 
-Static GTFS:
-- uploaded through the admin interface as a `.zip` archive and imported into PostgreSQL
+- .NET SDK 9+
+- PostgreSQL
 
-## Local Setup
+### Database
 
-### 1. Database
+Create a local PostgreSQL database, for example:
 
-The app expects a local PostgreSQL database.
+- database: `transit_analytics`
+- user: `postgres`
 
-Default local database name:
-- `transit_analytics`
+### User Secrets
 
-### 2. Secrets
-
-Use .NET user secrets for local development.
-
-Initialize:
+Initialize user secrets if needed:
 
 ```bash
 dotnet user-secrets init
 ```
 
-Set AT subscription key:
+Set required values:
 
 ```bash
 dotnet user-secrets set "AucklandTransport:SubscriptionKey" "YOUR_KEY"
-```
-
-Set database connection string:
-
-```bash
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=transit_analytics;Username=postgres"
-```
-
-Set admin password hash:
-
-```bash
 dotnet user-secrets set "Admin:PasswordHash" "YOUR_HASH"
 ```
 
-### 3. Run the app
+Optional local WebSocket origin allowlist:
 
-Apply migrations first:
+```bash
+dotnet user-secrets set "VehicleWebSocket:AllowedOrigins:0" "http://localhost:5193"
+```
+
+### Apply Migrations
 
 ```bash
 dotnet ef database update
 ```
 
-Then start the app:
+### Run the App
 
 ```bash
 dotnet run
 ```
 
-## Migrations
+By default, local development runs without production-only internal secret enforcement.
+
+## Local URLs
+
+Typical local URLs:
+
+- `http://localhost:5193/health`
+- `http://localhost:5193/admin/login`
+- `http://localhost:5193/admin/settings`
+- `ws://localhost:5193/ws/vehicles`
+
+If your local launch profile uses a different port, use that port instead.
+
+## Configuration
+
+Important configuration sections:
+
+- `ConnectionStrings:DefaultConnection`
+- `AucklandTransport:BaseUrl`
+- `AucklandTransport:SubscriptionKey`
+- `Admin:PasswordHash`
+- `Admin:CookieName`
+- `Vehicles:LatestPositionMaxAgeMinutes`
+- `Vehicles:HistoryRetentionDays`
+- `InternalApi:Secret`
+- `InternalApi:HeaderName`
+- `VehicleWebSocket:MaxConcurrentConnections`
+- `VehicleWebSocket:AllowedOrigins`
+
+## Security Notes
+
+Current behavior:
+
+- admin is protected with cookie authentication
+- maintenance mode keeps `/health` and `/admin/*` reachable while blocking public traffic
+- WebSocket origin allowlisting and total connection caps are configurable
+
+For local development:
+
+- internal secret enforcement is disabled in `Development`
+- startup migrations are applied automatically when the app starts
+
+## Data Behavior
+
+- latest vehicle responses are built from persisted data, not raw AT payloads
+- GTFS static imports enrich route and trip metadata
+- latest vehicle visibility uses a freshness window controlled by `Vehicles:LatestPositionMaxAgeMinutes`
+- saved vehicle history retention uses `Vehicles:HistoryRetentionDays`
+- history and range endpoints enforce bounded time windows
+
+## Admin Area
+
+The built-in admin area is intended for operational control of the backend.
+
+Current capabilities:
+- sign in with a configured password hash
+- enable or disable maintenance mode
+- enable or disable polling
+- upload a GTFS `.zip` archive
+- monitor GTFS import status
+
+## Useful Commands
 
 Create a migration:
 
@@ -116,60 +174,8 @@ Apply migrations:
 dotnet ef database update
 ```
 
-## GTFS Static Import
+Run tests:
 
-Routes, trips, stops, shapes, and stop times are imported through the protected admin UI.
-
-Use:
-- `/admin/login`
-- `/admin/settings`
-
-Upload a GTFS `.zip` archive there and the backend will validate it and run the import in the background.
-
-## Realtime Ingestion
-
-The app runs a hosted background worker that polls Auckland Transport every 30 seconds and saves vehicle positions into PostgreSQL.
-
-Vehicles in `GET /vehicles/latest` and websocket snapshots are filtered to recent positions only.
-The default freshness window is 5 minutes and can be changed with `Vehicles:LatestPositionMaxAgeMinutes`.
-Saved vehicle history is retained for 7 days by default and cleaned up at `03:00` Auckland time by a daily background job using `Vehicles:HistoryRetentionDays`.
-
-## Route and Playback Data
-
-Imported GTFS static data is used to enrich realtime vehicle responses and to provide route context for the client.
-
-Current route-related functionality:
-- route list retrieval
-- live vehicle counts per route
-- route shape retrieval
-- route stop retrieval
-
-Current playback functionality:
-- single-vehicle history in a bounded time window
-- range playback in a bounded time window
-- optional route-scoped range playback filtering
-
-Playback endpoints enforce server-side time-window limits to keep result sizes bounded.
-
-## Admin Area
-
-The backend includes a small built-in admin area under `/admin/*`.
-
-Current admin capabilities:
-- sign in with a configured password hash
-- enable or disable maintenance mode
-- enable or disable polling
-- upload a GTFS `.zip` archive
-- monitor GTFS import status from the settings page
-
-When maintenance mode is enabled:
-- `/health` remains available
-- admin routes remain available
-- public API endpoints return `503 Service Unavailable`
-- `/ws/vehicles` rejects websocket upgrades with `503`
-
-## Notes
-
-- The frontend should consume this backend, not Auckland Transport directly.
-- `GET /vehicles/latest` returns backend DTOs, not raw AT payloads.
-- Not all realtime vehicle records include enough trip/route metadata to be fully enriched.
+```bash
+dotnet test
+```
