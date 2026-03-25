@@ -1,4 +1,4 @@
-name: Transit Analytics API
+name: CI and Deploy
 
 on:
   push:
@@ -7,22 +7,23 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  ci:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup .NET
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up .NET 9
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
       - name: Restore dependencies
         run: dotnet restore
-      - name: Build
+      - name: Build application
         run: dotnet build --no-restore
-      - name: Test
+      - name: Run tests
         run: dotnet test --no-build --verbosity normal
-      - name: Publish
+      - name: Publish application
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: dotnet publish -c Release -o publish
       - name: Upload publish artifact
@@ -32,8 +33,8 @@ jobs:
           name: publish
           path: publish/
 
-  deploy:
-    needs: build
+  deploy_prod:
+    needs: ci
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
@@ -43,10 +44,12 @@ jobs:
         with:
           name: publish
           path: publish/
-      - name: Stop service
+      - name: Record deployed revision
+        run: echo "${{ github.sha }}" > publish/REVISION
+      - name: Prepare server and stop service
         uses: appleboy/ssh-action@v1
         with:
-          host: 209.38.26.216
+          host: ${{ secrets.PROD_HOST }}
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
@@ -59,21 +62,44 @@ jobs:
             EOF'
             sudo systemctl stop transit-analytics-api
             rm -rf /home/deploy/TransitAnalyticsAPI/*
-      - name: Copy files
+      - name: Copy published files
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: 209.38.26.216
+          host: ${{ secrets.PROD_HOST }}
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "publish/*"
           target: "/home/deploy/TransitAnalyticsAPI/"
           strip_components: 1
-      - name: Start service
+      - name: Restart service and verify status
         uses: appleboy/ssh-action@v1
         with:
-          host: 209.38.26.216
+          host: ${{ secrets.PROD_HOST }}
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             sudo systemctl restart transit-analytics-api
             sudo systemctl status transit-analytics-api --no-pager
+      - name: Check health endpoint
+        env:
+          PROD_HEALTHCHECK_URL: ${{ secrets.PROD_HEALTHCHECK_URL }}
+        run: |
+          if [ -z "$PROD_HEALTHCHECK_URL" ]; then
+            echo "PROD_HEALTHCHECK_URL is not set. Skipping health check."
+            exit 0
+          fi
+
+          for attempt in 1 2 3 4 5 6; do
+            response="$(curl --silent --show-error --fail "$PROD_HEALTHCHECK_URL")"
+
+            if echo "$response" | grep -q '"status":"ok"'; then
+              echo "Health check passed on attempt $attempt."
+              exit 0
+            fi
+
+            echo "Health check at $PROD_HEALTHCHECK_URL not ready on attempt $attempt. Retrying in 5 seconds..."
+            sleep 5
+          done
+
+          echo "Health check failed for $PROD_HEALTHCHECK_URL after 6 attempts."
+          exit 1
