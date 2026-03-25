@@ -9,7 +9,7 @@ namespace TransitAnalyticsAPI.Controllers;
 public class VehiclesController : ControllerBase
 {
     private const int MaxVehicleHistoryPoints = 5_000;
-    private const int MaxVehicleRangePoints = 20_000;
+    private const int MaxVehicleRangePoints = 50_000;
     private static readonly TimeSpan MaxVehicleHistorySpan = TimeSpan.FromDays(7);
     private static readonly TimeSpan MaxVehicleRangeSpan = TimeSpan.FromHours(6);
 
