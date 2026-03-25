@@ -53,13 +53,14 @@ jobs:
           username: deploy
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            sudo install -m 600 /dev/null /etc/transit-analytics-api.env
-            sudo bash -c 'cat > /etc/transit-analytics-api.env <<EOF
+            cat <<EOF | sudo tee /etc/transit-analytics-api.env > /dev/null
             ConnectionStrings__DefaultConnection=${{ secrets.PROD_CONNECTION_STRING }}
             AucklandTransport__SubscriptionKey=${{ secrets.PROD_AT_SUBSCRIPTION_KEY }}
             Admin__PasswordHash=${{ secrets.PROD_ADMIN_PASSWORD_HASH }}
+            InternalApi__Secret=${{ secrets.INTERNAL_API_SECRET }}
             ASPNETCORE_ENVIRONMENT=Production
-            EOF'
+            EOF
+            sudo chmod 600 /etc/transit-analytics-api.env
             sudo systemctl stop transit-analytics-api
             rm -rf /home/deploy/TransitAnalyticsAPI/*
       - name: Copy published files
@@ -80,26 +81,24 @@ jobs:
           script: |
             sudo systemctl restart transit-analytics-api
             sudo systemctl status transit-analytics-api --no-pager
-      - name: Check health endpoint
-        env:
-          PROD_HEALTHCHECK_URL: ${{ secrets.PROD_HEALTHCHECK_URL }}
-        run: |
-          if [ -z "$PROD_HEALTHCHECK_URL" ]; then
-            echo "PROD_HEALTHCHECK_URL is not set. Skipping health check."
-            exit 0
-          fi
+      - name: Check health endpoint on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: deploy
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            for attempt in 1 2 3 4 5 6; do
+              response="$(curl --silent --show-error --fail http://127.0.0.1:5000/health)"
 
-          for attempt in 1 2 3 4 5 6; do
-            response="$(curl --silent --show-error --fail "$PROD_HEALTHCHECK_URL")"
+              if echo "$response" | grep -q '"status":"ok"'; then
+                echo "Health check passed on attempt $attempt."
+                exit 0
+              fi
 
-            if echo "$response" | grep -q '"status":"ok"'; then
-              echo "Health check passed on attempt $attempt."
-              exit 0
-            fi
+              echo "Local health check not ready on attempt $attempt. Retrying in 5 seconds..."
+              sleep 5
+            done
 
-            echo "Health check at $PROD_HEALTHCHECK_URL not ready on attempt $attempt. Retrying in 5 seconds..."
-            sleep 5
-          done
-
-          echo "Health check failed for $PROD_HEALTHCHECK_URL after 6 attempts."
-          exit 1
+            echo "Local health check failed after 6 attempts."
+            exit 1
