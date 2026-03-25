@@ -8,7 +8,8 @@ public class InternalApiSecretMiddleware
     private static readonly PathString[] ExcludedPaths =
     [
         new("/admin"),
-        new("/health")
+        new("/health"),
+        new("/ws/vehicles")
     ];
 
     private readonly RequestDelegate _next;
