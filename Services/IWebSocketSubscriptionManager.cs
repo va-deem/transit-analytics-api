@@ -4,7 +4,7 @@ namespace TransitAnalyticsAPI.Services;
 
 public interface IWebSocketSubscriptionManager
 {
-    Task<bool> AddConnectionAsync(WebSocket socket, CancellationToken cancellationToken = default);
+    Task<bool> AddConnectionAsync(WebSocket socket, string ipAddress, CancellationToken cancellationToken = default);
 
     Task RemoveConnectionAsync(WebSocket socket, CancellationToken cancellationToken = default);
 

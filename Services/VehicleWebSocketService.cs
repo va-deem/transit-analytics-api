@@ -1,6 +1,8 @@
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Options;
+using TransitAnalyticsAPI.Configuration;
 using TransitAnalyticsAPI.Models.Dto;
 
 namespace TransitAnalyticsAPI.Services;
@@ -11,21 +13,24 @@ public class VehicleWebSocketService : IVehicleWebSocketService
 
     private readonly IVehicleLatestQueryService _vehicleLatestQueryService;
     private readonly IWebSocketSubscriptionManager _subscriptionManager;
+    private readonly VehicleWebSocketOptions _options;
     private readonly ILogger<VehicleWebSocketService> _logger;
 
     public VehicleWebSocketService(
         IVehicleLatestQueryService vehicleLatestQueryService,
         IWebSocketSubscriptionManager subscriptionManager,
+        IOptions<VehicleWebSocketOptions> options,
         ILogger<VehicleWebSocketService> logger)
     {
         _vehicleLatestQueryService = vehicleLatestQueryService;
         _subscriptionManager = subscriptionManager;
+        _options = options.Value;
         _logger = logger;
     }
 
-    public async Task HandleConnectionAsync(WebSocket socket, CancellationToken cancellationToken = default)
+    public async Task HandleConnectionAsync(WebSocket socket, string ipAddress, CancellationToken cancellationToken = default)
     {
-        var accepted = await _subscriptionManager.AddConnectionAsync(socket, cancellationToken);
+        var accepted = await _subscriptionManager.AddConnectionAsync(socket, ipAddress, cancellationToken);
         if (!accepted)
         {
             _logger.LogWarning("Rejected websocket connection because the connection cap was reached.");
@@ -40,7 +45,8 @@ public class VehicleWebSocketService : IVehicleWebSocketService
             "Accepted websocket connection. Active connections: {ConnectionCount}.",
             _subscriptionManager.GetConnectionCount());
 
-        var buffer = new byte[8 * 1024];
+        var buffer = new byte[Math.Min(_options.MaxMessageSizeBytes, 8 * 1024)];
+        var messageTimestamps = new Queue<DateTimeOffset>();
 
         try
         {
@@ -58,7 +64,27 @@ public class VehicleWebSocketService : IVehicleWebSocketService
                     continue;
                 }
 
-                var message = await ReadMessageAsync(socket, result, buffer, cancellationToken);
+                if (IsRateLimitExceeded(messageTimestamps))
+                {
+                    _logger.LogWarning("Closing websocket connection due to rate limit exceeded.");
+                    await socket.CloseAsync(
+                        WebSocketCloseStatus.PolicyViolation,
+                        "Rate limit exceeded.",
+                        cancellationToken);
+                    break;
+                }
+
+                var message = await ReadMessageAsync(socket, result, buffer, _options.MaxMessageSizeBytes, cancellationToken);
+                if (message is null)
+                {
+                    _logger.LogWarning("Closing websocket connection due to message size limit exceeded.");
+                    await socket.CloseAsync(
+                        WebSocketCloseStatus.MessageTooBig,
+                        "Message too large.",
+                        cancellationToken);
+                    break;
+                }
+
                 if (string.IsNullOrWhiteSpace(message))
                 {
                     continue;
@@ -121,6 +147,21 @@ public class VehicleWebSocketService : IVehicleWebSocketService
             cancellationToken);
     }
 
+    private bool IsRateLimitExceeded(Queue<DateTimeOffset> timestamps)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var windowStart = now.AddMinutes(-1);
+
+        while (timestamps.Count > 0 && timestamps.Peek() < windowStart)
+        {
+            timestamps.Dequeue();
+        }
+
+        timestamps.Enqueue(now);
+
+        return timestamps.Count > _options.MaxMessagesPerMinute;
+    }
+
     private async Task<IReadOnlyList<VehicleLatestDto>> GetSnapshotDataAsync(
         string channel,
         CancellationToken cancellationToken)
@@ -145,12 +186,21 @@ public class VehicleWebSocketService : IVehicleWebSocketService
         return [];
     }
 
-    private static async Task<string> ReadMessageAsync(
+    /// <summary>
+    /// Reads a complete WebSocket message. Returns null if the message exceeds the size limit.
+    /// </summary>
+    private static async Task<string?> ReadMessageAsync(
         WebSocket socket,
         WebSocketReceiveResult firstResult,
         byte[] buffer,
+        int maxMessageSizeBytes,
         CancellationToken cancellationToken)
     {
+        if (firstResult.EndOfMessage)
+        {
+            return Encoding.UTF8.GetString(buffer, 0, firstResult.Count);
+        }
+
         using var stream = new MemoryStream();
         stream.Write(buffer, 0, firstResult.Count);
 
@@ -159,6 +209,17 @@ public class VehicleWebSocketService : IVehicleWebSocketService
         {
             result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
             stream.Write(buffer, 0, result.Count);
+
+            if (stream.Length > maxMessageSizeBytes)
+            {
+                // Drain the rest of the message before returning
+                while (!result.EndOfMessage)
+                {
+                    result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+                }
+
+                return null;
+            }
         }
 
         return Encoding.UTF8.GetString(stream.ToArray());

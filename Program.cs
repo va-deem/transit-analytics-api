@@ -173,10 +173,11 @@ app.Map("/ws/vehicles", async context =>
     }
 
     var socket = await context.WebSockets.AcceptWebSocketAsync();
+    var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     using var scope = app.Services.CreateScope();
     var webSocketService = scope.ServiceProvider.GetRequiredService<IVehicleWebSocketService>();
 
-    await webSocketService.HandleConnectionAsync(socket, context.RequestAborted);
+    await webSocketService.HandleConnectionAsync(socket, ipAddress, context.RequestAborted);
 });
 
 app.MapRazorPages();
