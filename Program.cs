@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using System.Net;
 using System.Threading.Channels;
 using TransitAnalyticsAPI.Admin.Security;
 using TransitAnalyticsAPI.Admin.Services;
@@ -22,6 +24,8 @@ builder.Services.Configure<AucklandTransportOptions>(
     builder.Configuration.GetSection(AucklandTransportOptions.SectionName));
 builder.Services.Configure<VehicleOptions>(
     builder.Configuration.GetSection(VehicleOptions.SectionName));
+builder.Services.Configure<InternalApiOptions>(
+    builder.Configuration.GetSection(InternalApiOptions.SectionName));
 builder.Services.AddSingleton(Channel.CreateBounded<GtfsUploadJob>(new BoundedChannelOptions(1)
 {
     FullMode = BoundedChannelFullMode.DropWrite,
@@ -87,14 +91,30 @@ builder.Services.AddHttpClient<IAucklandTransportClient, AucklandTransportClient
 });
 
 var app = builder.Build();
+var internalApiOptions = app.Services
+    .GetRequiredService<Microsoft.Extensions.Options.IOptions<InternalApiOptions>>()
+    .Value;
+
+if (app.Environment.IsProduction() && string.IsNullOrWhiteSpace(internalApiOptions.Secret))
+{
+    throw new InvalidOperationException(
+        $"Configuration value '{InternalApiOptions.SectionName}:Secret' is required in production.");
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    KnownProxies = { IPAddress.Loopback, IPAddress.IPv6Loopback }
+});
 app.UseWebSockets();
 app.UseAuthentication();
 app.UseMiddleware<MaintenanceModeMiddleware>();
+app.UseMiddleware<InternalApiSecretMiddleware>();
 app.UseAuthorization();
 app.UseHttpsRedirection();
 
