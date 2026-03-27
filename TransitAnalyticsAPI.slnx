@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="TransitAnalyticsAPI.csproj" />
+  <Project Path="TransitAnalyticsAPI.Tests/TransitAnalyticsAPI.Tests.csproj" />
+</Solution>
