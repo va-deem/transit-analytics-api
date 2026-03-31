@@ -6,5 +6,5 @@ public class VehicleOptions
 
     public int LatestPositionMaxAgeMinutes { get; set; } = 5;
 
-    public int HistoryRetentionDays { get; set; } = 7;
+    public int HistoryRetentionDays { get; set; } = 3;
 }
