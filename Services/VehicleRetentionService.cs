@@ -30,7 +30,7 @@ public class VehicleRetentionService : IVehicleRetentionService
             .SqlQueryRaw<string>("SELECT pg_size_pretty(pg_database_size(current_database())) AS \"Value\"")
             .FirstAsync(cancellationToken);
 
-        await _systemLog.LogAsync(SystemLogType.Info, "Starting vehicle retention cleanup",
+        await _systemLog.LogAsync(SystemLogType.Info, "Started vehicle retention cleanup",
             $"Current db size: {dbSize}.", cancellationToken);
 
         return await _appDbContext.VehiclePositions
