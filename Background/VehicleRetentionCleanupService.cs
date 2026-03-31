@@ -1,3 +1,4 @@
+using TransitAnalyticsAPI.Models.Entities;
 using TransitAnalyticsAPI.Services;
 
 namespace TransitAnalyticsAPI.Background;
@@ -9,13 +10,16 @@ public class VehicleRetentionCleanupService : BackgroundService
 
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ILogger<VehicleRetentionCleanupService> _logger;
+    private readonly ISystemLogService<VehicleRetentionCleanupService> _systemLog;
 
     public VehicleRetentionCleanupService(
         IServiceScopeFactory serviceScopeFactory,
-        ILogger<VehicleRetentionCleanupService> logger)
+        ILogger<VehicleRetentionCleanupService> logger,
+        ISystemLogService<VehicleRetentionCleanupService> systemLogService)
     {
         _serviceScopeFactory = serviceScopeFactory;
         _logger = logger;
+        _systemLog = systemLogService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -52,9 +56,8 @@ public class VehicleRetentionCleanupService : BackgroundService
 
             var deletedCount = await retentionService.DeleteExpiredAsync(cancellationToken);
 
-            _logger.LogInformation(
-                "Vehicle retention cleanup completed. Deleted {DeletedCount} expired vehicle positions.",
-                deletedCount);
+            await _systemLog.LogAsync(SystemLogType.Info, "Vehicle retention cleanup completed",
+                $"Deleted {deletedCount} expired vehicle positions.", cancellationToken);
         }
         catch (OperationCanceledException)
         {
@@ -62,7 +65,8 @@ public class VehicleRetentionCleanupService : BackgroundService
         }
         catch (Exception exception)
         {
-            _logger.LogError(exception, "Vehicle retention cleanup failed.");
+            await _systemLog.LogAsync(SystemLogType.Error, "Vehicle retention cleanup failed", exception.ToString(),
+                cancellationToken);
         }
     }
 

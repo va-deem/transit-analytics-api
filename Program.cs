@@ -44,6 +44,7 @@ builder.Services.AddScoped<IVehicleMetadataLookupService, VehicleMetadataLookupS
 builder.Services.AddScoped<IVehicleHistoryQueryService, VehicleHistoryQueryService>();
 builder.Services.AddScoped<IVehicleLatestQueryService, VehicleLatestQueryService>();
 builder.Services.AddScoped<IVehicleRetentionService, VehicleRetentionService>();
+builder.Services.AddScoped(typeof(ISystemLogService<>), typeof(SystemLogService<>));
 builder.Services.AddScoped<IVehiclePositionMapper, VehiclePositionMapper>();
 builder.Services.AddScoped<IVehiclePositionIngestionService, VehiclePositionIngestionService>();
 builder.Services.AddScoped<IVehicleSnapshotBroadcastService, VehicleSnapshotBroadcastService>();
