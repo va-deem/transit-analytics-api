@@ -23,6 +23,8 @@ public class AppDbContext : DbContext
 
     public DbSet<GtfsTrip> GtfsTrips => Set<GtfsTrip>();
 
+    public DbSet<SystemLog> SystemLogs => Set<SystemLog>();
+
     public DbSet<VehiclePosition> VehiclePositions => Set<VehiclePosition>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
