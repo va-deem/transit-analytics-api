@@ -16,7 +16,6 @@ public class VehicleRetentionService : IVehicleRetentionService
         AppDbContext appDbContext,
         IOptions<VehicleOptions> vehicleOptions,
         ISystemLogService<VehicleRetentionService> systemLogService)
-
     {
         _appDbContext = appDbContext;
         _historyRetention = TimeSpan.FromDays(Math.Max(1, vehicleOptions.Value.HistoryRetentionDays));
@@ -27,10 +26,10 @@ public class VehicleRetentionService : IVehicleRetentionService
     {
         var cutoffUtc = DateTime.UtcNow - _historyRetention;
 
-        var dbSize = await _appDbContext.Database                                                                                                                                                                                               
-            .SqlQueryRaw<string>("SELECT pg_size_pretty(pg_database_size(current_database())) AS \"Value\"")                                                                                                                                    
-            .FirstAsync(cancellationToken); 
-        
+        var dbSize = await _appDbContext.Database
+            .SqlQueryRaw<string>("SELECT pg_size_pretty(pg_database_size(current_database())) AS \"Value\"")
+            .FirstAsync(cancellationToken);
+
         await _systemLog.LogAsync(SystemLogType.Info, "Starting vehicle retention cleanup",
             $"Current db size: {dbSize}.", cancellationToken);
 
