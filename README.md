@@ -23,6 +23,20 @@ The app:
 - Entity Framework Core
 - Hosted background services
 
+## Project Structure
+
+- `Controllers/` — HTTP API endpoints
+- `Websockets/` — WebSocket transport endpoints
+- `Services/` — application and business logic
+- `Persistence/` — EF Core DbContext and database access
+- `Models/` — entities and DTOs
+- `Configuration/` — strongly-typed option classes
+- `Middleware/` — request pipeline middleware
+- `Background/` — hosted background services
+- `Clients/` — external API integrations
+- `Admin/` — admin security and services
+- `Areas/Admin/Pages/` — Razor Pages for the admin UI
+
 ## Features
 
 ### Public/backend API
