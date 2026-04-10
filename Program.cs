@@ -14,7 +14,6 @@ using TransitAnalyticsAPI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddRazorPages();
 builder.Services.AddOpenApi();
@@ -41,6 +40,7 @@ builder.Services.AddScoped<IGtfsUploadService, GtfsUploadService>();
 builder.Services.AddSingleton<IAdminPasswordService, AdminPasswordService>();
 builder.Services.AddScoped<IGtfsImportService, GtfsImportService>();
 builder.Services.AddScoped<IVehicleMetadataLookupService, VehicleMetadataLookupService>();
+builder.Services.AddScoped<IRoutesQueryService, RoutesQueryService>();
 builder.Services.AddScoped<IVehicleHistoryQueryService, VehicleHistoryQueryService>();
 builder.Services.AddScoped<IVehicleLatestQueryService, VehicleLatestQueryService>();
 builder.Services.AddScoped<IVehicleRetentionService, VehicleRetentionService>();
