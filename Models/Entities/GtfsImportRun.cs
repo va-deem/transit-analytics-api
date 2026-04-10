@@ -1,5 +1,12 @@
 namespace TransitAnalyticsAPI.Models.Entities;
 
+public enum GtfsImportStatus
+{
+    Running,
+    Completed,
+    Failed
+}
+
 public class GtfsImportRun
 {
     public long Id { get; set; }
@@ -10,7 +17,7 @@ public class GtfsImportRun
 
     public DateTime? CompletedAtUtc { get; set; }
 
-    public string Status { get; set; } = string.Empty;
+    public GtfsImportStatus Status { get; set; } = GtfsImportStatus.Running;
 
     public string? Notes { get; set; }
 

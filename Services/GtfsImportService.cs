@@ -34,7 +34,7 @@ public class GtfsImportService : IGtfsImportService
         {
             SourceVersion = sourceVersion,
             StartedAtUtc = DateTime.UtcNow,
-            Status = "running",
+            Status = GtfsImportStatus.Running,
             IsActive = false
         };
 
@@ -68,7 +68,7 @@ public class GtfsImportService : IGtfsImportService
                 .SingleAsync(run => run.Id == importRun.Id, cancellationToken);
 
             importRunToFinalize.IsActive = true;
-            importRunToFinalize.Status = "completed";
+            importRunToFinalize.Status = GtfsImportStatus.Completed;
             importRunToFinalize.CompletedAtUtc = DateTime.UtcNow;
 
             await _appDbContext.SaveChangesAsync(cancellationToken);
@@ -90,7 +90,7 @@ public class GtfsImportService : IGtfsImportService
             var importRunToFail = await _appDbContext.GtfsImportRuns
                 .SingleAsync(run => run.Id == importRun.Id, cancellationToken);
 
-            importRunToFail.Status = "failed";
+            importRunToFail.Status = GtfsImportStatus.Failed;
             importRunToFail.Notes = exception.Message;
             importRunToFail.CompletedAtUtc = DateTime.UtcNow;
             await _appDbContext.SaveChangesAsync(cancellationToken);
