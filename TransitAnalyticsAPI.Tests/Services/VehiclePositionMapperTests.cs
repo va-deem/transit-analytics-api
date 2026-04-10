@@ -9,7 +9,7 @@ public class VehiclePositionMapperTests
     [Fact]
     public void Map_SkipsDeletedAndIncompleteEntities_AndMapsValidOnes()
     {
-        var mapper = new VehiclePositionMapper();
+        var mapper = new VehiclePositionMapper(TimeProvider.System);
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
         var result = mapper.Map(

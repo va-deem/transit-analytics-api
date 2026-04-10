@@ -34,6 +34,7 @@ builder.Services.AddSingleton(Channel.CreateBounded<GtfsUploadJob>(new BoundedCh
     SingleReader = true,
     SingleWriter = false
 }));
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IPollingRuntimeState, PollingRuntimeState>();
 builder.Services.AddSingleton<IGtfsUploadQueue, GtfsUploadQueue>();
 builder.Services.AddScoped<IAdminSettingsService, AdminSettingsService>();

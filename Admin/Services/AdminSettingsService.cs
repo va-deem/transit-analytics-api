@@ -9,11 +9,16 @@ public class AdminSettingsService : IAdminSettingsService
     private const int SettingsRowId = 1;
 
     private readonly AppDbContext _appDbContext;
+    private readonly TimeProvider _timeProvider;
     private readonly IPollingRuntimeState _pollingRuntimeState;
 
-    public AdminSettingsService(AppDbContext appDbContext, IPollingRuntimeState pollingRuntimeState)
+    public AdminSettingsService(
+        AppDbContext appDbContext,
+        TimeProvider timeProvider,
+        IPollingRuntimeState pollingRuntimeState)
     {
         _appDbContext = appDbContext;
+        _timeProvider = timeProvider;
         _pollingRuntimeState = pollingRuntimeState;
     }
 
@@ -57,7 +62,7 @@ public class AdminSettingsService : IAdminSettingsService
         CancellationToken cancellationToken = default)
     {
         var settings = await GetOrCreateAsync(cancellationToken);
-        settings.LastGtfsUploadAtUtc = DateTime.UtcNow;
+        settings.LastGtfsUploadAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
         settings.LastGtfsUploadFileName = fileName;
         settings.LastGtfsImportStatus = status;
         settings.LastGtfsImportError = error;
@@ -73,7 +78,7 @@ public class AdminSettingsService : IAdminSettingsService
         CancellationToken cancellationToken = default)
     {
         var settings = await GetOrCreateAsync(cancellationToken);
-        settings.LastGtfsUploadAtUtc = DateTime.UtcNow;
+        settings.LastGtfsUploadAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
         settings.LastGtfsUploadFileName = fileName;
         settings.LastGtfsImportStatus = isSuccessful ? "completed" : "failed";
         settings.LastGtfsImportError = error;

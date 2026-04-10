@@ -12,10 +12,12 @@ public class GtfsImportService : IGtfsImportService
     private const int BatchSize = 5000;
 
     private readonly AppDbContext _appDbContext;
+    private readonly TimeProvider _timeProvider;
 
-    public GtfsImportService(AppDbContext appDbContext)
+    public GtfsImportService(AppDbContext appDbContext, TimeProvider timeProvider)
     {
         _appDbContext = appDbContext;
+        _timeProvider = timeProvider;
     }
 
     public async Task<GtfsImportResult> ImportRoutesAndTripsAsync(
@@ -33,7 +35,7 @@ public class GtfsImportService : IGtfsImportService
         var importRun = new GtfsImportRun
         {
             SourceVersion = sourceVersion,
-            StartedAtUtc = DateTime.UtcNow,
+            StartedAtUtc = _timeProvider.GetUtcNow().UtcDateTime,
             Status = GtfsImportStatus.Running,
             IsActive = false
         };
@@ -69,7 +71,7 @@ public class GtfsImportService : IGtfsImportService
 
             importRunToFinalize.IsActive = true;
             importRunToFinalize.Status = GtfsImportStatus.Completed;
-            importRunToFinalize.CompletedAtUtc = DateTime.UtcNow;
+            importRunToFinalize.CompletedAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
 
             await _appDbContext.SaveChangesAsync(cancellationToken);
             await DeleteInactiveImportRunsAsync(importRun.Id, cancellationToken);
@@ -92,7 +94,7 @@ public class GtfsImportService : IGtfsImportService
 
             importRunToFail.Status = GtfsImportStatus.Failed;
             importRunToFail.Notes = exception.Message;
-            importRunToFail.CompletedAtUtc = DateTime.UtcNow;
+            importRunToFail.CompletedAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
             await _appDbContext.SaveChangesAsync(cancellationToken);
             throw;
         }
