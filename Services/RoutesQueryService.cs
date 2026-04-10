@@ -7,19 +7,22 @@ namespace TransitAnalyticsAPI.Services;
 public class RoutesQueryService : IRoutesQueryService
 {
     private readonly AppDbContext _appDbContext;
+    private readonly IActiveImportRunResolver _activeImportRunResolver;
     private readonly IVehicleLatestQueryService _vehicleLatestQueryService;
 
     public RoutesQueryService(
         AppDbContext appDbContext,
+        IActiveImportRunResolver activeImportRunResolver,
         IVehicleLatestQueryService vehicleLatestQueryService)
     {
         _appDbContext = appDbContext;
+        _activeImportRunResolver = activeImportRunResolver;
         _vehicleLatestQueryService = vehicleLatestQueryService;
     }
 
     public async Task<List<RouteDto>> GetRoutesAsync(CancellationToken cancellationToken = default)
     {
-        var activeImportRunId = await GetActiveImportRunIdAsync(cancellationToken);
+        var activeImportRunId = await _activeImportRunResolver.GetActiveImportRunIdAsync(cancellationToken);
 
         if (!activeImportRunId.HasValue)
         {
@@ -64,7 +67,7 @@ public class RoutesQueryService : IRoutesQueryService
         string routeId,
         CancellationToken cancellationToken = default)
     {
-        var activeImportRunId = await GetActiveImportRunIdAsync(cancellationToken);
+        var activeImportRunId = await _activeImportRunResolver.GetActiveImportRunIdAsync(cancellationToken);
 
         if (!activeImportRunId.HasValue)
         {
@@ -101,7 +104,7 @@ public class RoutesQueryService : IRoutesQueryService
         string routeId,
         CancellationToken cancellationToken = default)
     {
-        var activeImportRunId = await GetActiveImportRunIdAsync(cancellationToken);
+        var activeImportRunId = await _activeImportRunResolver.GetActiveImportRunIdAsync(cancellationToken);
 
         if (!activeImportRunId.HasValue)
         {
@@ -137,15 +140,5 @@ public class RoutesQueryService : IRoutesQueryService
                 PlatformCode = stop.PlatformCode
             })
             .ToListAsync(cancellationToken);
-    }
-
-    private async Task<long?> GetActiveImportRunIdAsync(CancellationToken cancellationToken)
-    {
-        return await _appDbContext.GtfsImportRuns
-            .AsNoTracking()
-            .Where(importRun => importRun.IsActive && importRun.Status == "completed")
-            .OrderByDescending(importRun => importRun.CompletedAtUtc)
-            .Select(importRun => (long?)importRun.Id)
-            .FirstOrDefaultAsync(cancellationToken);
     }
 }

@@ -9,15 +9,18 @@ public class VehiclePositionIngestionService : IVehiclePositionIngestionService
 {
     private readonly IAucklandTransportClient _aucklandTransportClient;
     private readonly IVehiclePositionMapper _vehiclePositionMapper;
+    private readonly IActiveImportRunResolver _activeImportRunResolver;
     private readonly AppDbContext _appDbContext;
 
     public VehiclePositionIngestionService(
         IAucklandTransportClient aucklandTransportClient,
         IVehiclePositionMapper vehiclePositionMapper,
+        IActiveImportRunResolver activeImportRunResolver,
         AppDbContext appDbContext)
     {
         _aucklandTransportClient = aucklandTransportClient;
         _vehiclePositionMapper = vehiclePositionMapper;
+        _activeImportRunResolver = activeImportRunResolver;
         _appDbContext = appDbContext;
     }
 
@@ -52,12 +55,7 @@ public class VehiclePositionIngestionService : IVehiclePositionIngestionService
         List<VehiclePosition> vehiclePositions,
         CancellationToken cancellationToken)
     {
-        var activeImportRunId = await _appDbContext.GtfsImportRuns
-            .AsNoTracking()
-            .Where(importRun => importRun.IsActive && importRun.Status == "completed")
-            .OrderByDescending(importRun => importRun.CompletedAtUtc)
-            .Select(importRun => (long?)importRun.Id)
-            .FirstOrDefaultAsync(cancellationToken);
+        var activeImportRunId = await _activeImportRunResolver.GetActiveImportRunIdAsync(cancellationToken);
 
         if (!activeImportRunId.HasValue)
         {

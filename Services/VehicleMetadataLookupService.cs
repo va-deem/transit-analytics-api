@@ -7,22 +7,21 @@ namespace TransitAnalyticsAPI.Services;
 public class VehicleMetadataLookupService : IVehicleMetadataLookupService
 {
     private readonly AppDbContext _appDbContext;
+    private readonly IActiveImportRunResolver _activeImportRunResolver;
 
-    public VehicleMetadataLookupService(AppDbContext appDbContext)
+    public VehicleMetadataLookupService(
+        AppDbContext appDbContext,
+        IActiveImportRunResolver activeImportRunResolver)
     {
         _appDbContext = appDbContext;
+        _activeImportRunResolver = activeImportRunResolver;
     }
 
     public async Task<VehicleMetadataLookup> BuildAsync(
         IEnumerable<VehicleMetadataKey> keys,
         CancellationToken cancellationToken = default)
     {
-        var activeImportRunId = await _appDbContext.GtfsImportRuns
-            .AsNoTracking()
-            .Where(importRun => importRun.IsActive && importRun.Status == "completed")
-            .OrderByDescending(importRun => importRun.CompletedAtUtc)
-            .Select(importRun => (long?)importRun.Id)
-            .FirstOrDefaultAsync(cancellationToken);
+        var activeImportRunId = await _activeImportRunResolver.GetActiveImportRunIdAsync(cancellationToken);
 
         if (!activeImportRunId.HasValue)
         {
