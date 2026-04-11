@@ -10,16 +10,13 @@ public class VehicleRetentionCleanupService : BackgroundService
 
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ILogger<VehicleRetentionCleanupService> _logger;
-    private readonly ISystemLogService<VehicleRetentionCleanupService> _systemLog;
 
     public VehicleRetentionCleanupService(
         IServiceScopeFactory serviceScopeFactory,
-        ILogger<VehicleRetentionCleanupService> logger,
-        ISystemLogService<VehicleRetentionCleanupService> systemLogService)
+        ILogger<VehicleRetentionCleanupService> logger)
     {
         _serviceScopeFactory = serviceScopeFactory;
         _logger = logger;
-        _systemLog = systemLogService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -49,14 +46,16 @@ public class VehicleRetentionCleanupService : BackgroundService
 
     private async Task RunCleanupAsync(CancellationToken cancellationToken)
     {
+        using var scope = _serviceScopeFactory.CreateScope();
+        var systemLog = scope.ServiceProvider.GetRequiredService<ISystemLogService<VehicleRetentionCleanupService>>();
+
         try
         {
-            using var scope = _serviceScopeFactory.CreateScope();
             var retentionService = scope.ServiceProvider.GetRequiredService<IVehicleRetentionService>();
 
             var deletedCount = await retentionService.DeleteExpiredAsync(cancellationToken);
 
-            await _systemLog.LogAsync(SystemLogType.Info, "Vehicle retention cleanup completed",
+            await systemLog.LogAsync(SystemLogType.Info, "Vehicle retention cleanup completed",
                 $"Deleted {deletedCount} expired vehicle positions.", cancellationToken);
         }
         catch (OperationCanceledException)
@@ -65,7 +64,7 @@ public class VehicleRetentionCleanupService : BackgroundService
         }
         catch (Exception exception)
         {
-            await _systemLog.LogAsync(SystemLogType.Error, "Vehicle retention cleanup failed", exception.ToString(),
+            await systemLog.LogAsync(SystemLogType.Error, "Vehicle retention cleanup failed", exception.ToString(),
                 cancellationToken);
         }
     }
