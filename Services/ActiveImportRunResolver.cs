@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using TransitAnalyticsAPI.Models.Entities;
 using TransitAnalyticsAPI.Persistence;
 
 namespace TransitAnalyticsAPI.Services;
@@ -16,7 +17,7 @@ public class ActiveImportRunResolver : IActiveImportRunResolver
     {
         return await _appDbContext.GtfsImportRuns
             .AsNoTracking()
-            .Where(importRun => importRun.IsActive && importRun.Status == "completed")
+            .Where(importRun => importRun.IsActive && importRun.Status == GtfsImportStatus.Completed)
             .OrderByDescending(importRun => importRun.CompletedAtUtc)
             .Select(importRun => (long?)importRun.Id)
             .FirstOrDefaultAsync(cancellationToken);

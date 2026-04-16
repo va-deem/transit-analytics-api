@@ -8,10 +8,12 @@ public class SystemLogService<T> : ISystemLogService<T>
     private static readonly string Source = typeof(T).Name;
 
     private readonly AppDbContext _appDbContext;
+    private readonly TimeProvider _timeProvider;
 
-    public SystemLogService(AppDbContext appDbContext)
+    public SystemLogService(AppDbContext appDbContext, TimeProvider timeProvider)
     {
         _appDbContext = appDbContext;
+        _timeProvider = timeProvider;
     }
 
     public async Task LogAsync(SystemLogType type, string description, string? details = null,
@@ -19,7 +21,7 @@ public class SystemLogService<T> : ISystemLogService<T>
     {
         _appDbContext.SystemLogs.Add(new SystemLog
         {
-            CreatedAtUtc = DateTime.UtcNow,
+            CreatedAtUtc = _timeProvider.GetUtcNow().UtcDateTime,
             Type = type,
             Source = Source,
             Description = description,

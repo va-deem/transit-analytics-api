@@ -45,6 +45,7 @@ public class VehicleLatestQueryServiceTests
         var service = new VehicleLatestQueryService(
             dbContext,
             new FakeVehicleMetadataLookupService(),
+            TimeProvider.System,
             Options.Create(new VehicleOptions
             {
                 LatestPositionMaxAgeMinutes = 5

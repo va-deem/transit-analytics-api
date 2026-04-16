@@ -10,21 +10,24 @@ public class VehicleLatestQueryService : IVehicleLatestQueryService
 {
     private readonly AppDbContext _appDbContext;
     private readonly IVehicleMetadataLookupService _vehicleMetadataLookupService;
+    private readonly TimeProvider _timeProvider;
     private readonly TimeSpan _latestPositionMaxAge;
 
     public VehicleLatestQueryService(
         AppDbContext appDbContext,
         IVehicleMetadataLookupService vehicleMetadataLookupService,
+        TimeProvider timeProvider,
         IOptions<VehicleOptions> vehicleOptions)
     {
         _appDbContext = appDbContext;
         _vehicleMetadataLookupService = vehicleMetadataLookupService;
+        _timeProvider = timeProvider;
         _latestPositionMaxAge = TimeSpan.FromMinutes(Math.Max(1, vehicleOptions.Value.LatestPositionMaxAgeMinutes));
     }
 
     public async Task<List<VehicleLatestDto>> GetLatestAsync(CancellationToken cancellationToken = default)
     {
-        var cutoffUtc = DateTime.UtcNow - _latestPositionMaxAge;
+        var cutoffUtc = _timeProvider.GetUtcNow().UtcDateTime - _latestPositionMaxAge;
 
         var latestPositions = await _appDbContext.VehiclePositions
             .AsNoTracking()

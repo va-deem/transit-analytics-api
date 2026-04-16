@@ -29,6 +29,12 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<GtfsImportRun>()
+            .Property(importRun => importRun.Status)
+            .HasConversion(
+                status => status.ToString().ToLowerInvariant(),
+                value => Enum.Parse<GtfsImportStatus>(value, true));
+
         modelBuilder.Entity<VehiclePosition>()
             .HasIndex(vehiclePosition => new { vehiclePosition.VehicleId, vehiclePosition.RecordedAtUtc });
 

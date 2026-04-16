@@ -5,9 +5,16 @@ namespace TransitAnalyticsAPI.Services;
 
 public class VehiclePositionMapper : IVehiclePositionMapper
 {
+    private readonly TimeProvider _timeProvider;
+
+    public VehiclePositionMapper(TimeProvider timeProvider)
+    {
+        _timeProvider = timeProvider;
+    }
+
     public List<VehiclePosition> Map(IEnumerable<AucklandTransportFeedEntity> entities)
     {
-        var ingestedAtUtc = DateTime.UtcNow;
+        var ingestedAtUtc = _timeProvider.GetUtcNow().UtcDateTime;
 
         return entities
             .Where(entity =>

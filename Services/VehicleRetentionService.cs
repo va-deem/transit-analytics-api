@@ -9,22 +9,25 @@ namespace TransitAnalyticsAPI.Services;
 public class VehicleRetentionService : IVehicleRetentionService
 {
     private readonly AppDbContext _appDbContext;
+    private readonly TimeProvider _timeProvider;
     private readonly TimeSpan _historyRetention;
     private readonly ISystemLogService<VehicleRetentionService> _systemLog;
 
     public VehicleRetentionService(
         AppDbContext appDbContext,
+        TimeProvider timeProvider,
         IOptions<VehicleOptions> vehicleOptions,
         ISystemLogService<VehicleRetentionService> systemLogService)
     {
         _appDbContext = appDbContext;
+        _timeProvider = timeProvider;
         _historyRetention = TimeSpan.FromDays(Math.Max(1, vehicleOptions.Value.HistoryRetentionDays));
         _systemLog = systemLogService;
     }
 
     public async Task<int> DeleteExpiredAsync(CancellationToken cancellationToken = default)
     {
-        var cutoffUtc = DateTime.UtcNow - _historyRetention;
+        var cutoffUtc = _timeProvider.GetUtcNow().UtcDateTime - _historyRetention;
 
         var dbSize = await _appDbContext.Database
             .SqlQueryRaw<string>("SELECT pg_size_pretty(pg_database_size(current_database())) AS \"Value\"")
