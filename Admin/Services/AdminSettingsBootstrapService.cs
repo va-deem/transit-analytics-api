@@ -21,9 +21,10 @@ public class AdminSettingsBootstrapService : IHostedService
         using var scope = _serviceScopeFactory.CreateScope();
         var adminSettingsService = scope.ServiceProvider.GetRequiredService<IAdminSettingsService>();
         var settings = await adminSettingsService.GetAsync(cancellationToken);
+        _pollingRuntimeState.SetMaintenanceModeEnabled(settings.IsMaintenanceMode);
         _pollingRuntimeState.SetPollingEnabled(settings.IsPollingEnabled);
         var startupMessage =
-            $"Admin settings initialized.\nmaintenance: db={settings.IsMaintenanceMode}, memory=n/a\npolling:     db={settings.IsPollingEnabled}, memory={_pollingRuntimeState.IsPollingEnabled}";
+            $"Admin settings initialized.\nmaintenance: db={settings.IsMaintenanceMode}, memory={_pollingRuntimeState.IsMaintenanceModeEnabled}\npolling:     db={settings.IsPollingEnabled}, memory={_pollingRuntimeState.IsPollingEnabled}";
 
         WriteHighlightedMessage(startupMessage);
 

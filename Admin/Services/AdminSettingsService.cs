@@ -29,8 +29,8 @@ public class AdminSettingsService : IAdminSettingsService
 
     public async Task<bool> IsMaintenanceModeEnabledAsync(CancellationToken cancellationToken = default)
     {
-        var settings = await GetOrCreateAsync(cancellationToken);
-        return settings.IsMaintenanceMode;
+        await Task.CompletedTask;
+        return _pollingRuntimeState.IsMaintenanceModeEnabled;
     }
 
     public async Task<bool> IsPollingEnabledAsync(CancellationToken cancellationToken = default)
@@ -44,6 +44,7 @@ public class AdminSettingsService : IAdminSettingsService
         var settings = await GetOrCreateAsync(cancellationToken);
         settings.IsMaintenanceMode = isEnabled;
         await _appDbContext.SaveChangesAsync(cancellationToken);
+        _pollingRuntimeState.SetMaintenanceModeEnabled(isEnabled);
     }
 
     public async Task SetPollingEnabledAsync(bool isEnabled, CancellationToken cancellationToken = default)

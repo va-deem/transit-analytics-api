@@ -7,6 +7,13 @@ public class PollingRuntimeState : IPollingRuntimeState
 
     public bool IsPollingEnabled { get; private set; }
 
+    public bool IsMaintenanceModeEnabled { get; private set; }
+
+    public void SetMaintenanceModeEnabled(bool isEnabled)
+    {
+        IsMaintenanceModeEnabled = isEnabled;
+    }
+
     public void SetPollingEnabled(bool isEnabled)
     {
         lock (_sync)
