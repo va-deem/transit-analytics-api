@@ -50,6 +50,7 @@ The app:
 - `GET /routes/{id}/vehicles/latest`
 - `GET /routes/{id}/shape`
 - `GET /routes/{id}/stops`
+- `GET /stops/{stopId}/departures`
 - `/ws/vehicles` for live snapshots and route-scoped subscriptions
 
 ### Admin
@@ -162,6 +163,7 @@ For local development:
 
 - latest vehicle responses are built from persisted data, not raw AT payloads
 - GTFS static imports enrich route and trip metadata
+- stop departures are filtered by imported GTFS service calendars for the Auckland service day
 - latest vehicle visibility uses a freshness window controlled by `Vehicles:LatestPositionMaxAgeMinutes`
 - saved vehicle history retention uses `Vehicles:HistoryRetentionDays`
 - history and range endpoints enforce bounded time windows

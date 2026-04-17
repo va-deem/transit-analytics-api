@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
@@ -14,10 +15,15 @@ using TransitAnalyticsAPI.Persistence;
 using TransitAnalyticsAPI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+const long gtfsUploadMaxBytes = 100L * 1024 * 1024;
 
 builder.Services.AddControllers();
 builder.Services.AddRazorPages();
 builder.Services.AddOpenApi();
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = gtfsUploadMaxBytes;
+});
 builder.Services.Configure<AdminOptions>(
     builder.Configuration.GetSection(AdminOptions.SectionName));
 builder.Services.Configure<AucklandTransportOptions>(
@@ -44,6 +50,7 @@ builder.Services.AddScoped<IGtfsImportService, GtfsImportService>();
 builder.Services.AddScoped<IActiveImportRunResolver, ActiveImportRunResolver>();
 builder.Services.AddScoped<IVehicleMetadataLookupService, VehicleMetadataLookupService>();
 builder.Services.AddScoped<IRoutesQueryService, RoutesQueryService>();
+builder.Services.AddScoped<IStopDeparturesQueryService, StopDeparturesQueryService>();
 builder.Services.AddScoped<IVehicleHistoryQueryService, VehicleHistoryQueryService>();
 builder.Services.AddScoped<IVehicleLatestQueryService, VehicleLatestQueryService>();
 builder.Services.AddScoped<IVehicleRetentionService, VehicleRetentionService>();
@@ -60,6 +67,10 @@ builder.Services.AddHostedService<VehicleRetentionCleanupService>();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
         .UseSnakeCaseNamingConvention());
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = gtfsUploadMaxBytes;
+});
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>

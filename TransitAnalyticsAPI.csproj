@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <Compile Remove="TransitAnalyticsAPI.Tests/**/*.cs" />
+    <Content Remove="TransitAnalyticsAPI.Tests/**/*" />
     <EmbeddedResource Remove="TransitAnalyticsAPI.Tests/**/*.resx" />
     <None Remove="TransitAnalyticsAPI.Tests/**/*" />
   </ItemGroup>

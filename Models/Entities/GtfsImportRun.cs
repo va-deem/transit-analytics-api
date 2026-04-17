@@ -25,6 +25,10 @@ public class GtfsImportRun
 
     public List<GtfsRoute> Routes { get; set; } = [];
 
+    public List<GtfsCalendar> Calendars { get; set; } = [];
+
+    public List<GtfsCalendarDate> CalendarDates { get; set; } = [];
+
     public List<GtfsShapePoint> ShapePoints { get; set; } = [];
 
     public List<GtfsStop> Stops { get; set; } = [];

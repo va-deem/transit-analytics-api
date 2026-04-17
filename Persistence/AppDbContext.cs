@@ -15,6 +15,10 @@ public class AppDbContext : DbContext
 
     public DbSet<GtfsRoute> GtfsRoutes => Set<GtfsRoute>();
 
+    public DbSet<GtfsCalendar> GtfsCalendars => Set<GtfsCalendar>();
+
+    public DbSet<GtfsCalendarDate> GtfsCalendarDates => Set<GtfsCalendarDate>();
+
     public DbSet<GtfsShapePoint> GtfsShapePoints => Set<GtfsShapePoint>();
 
     public DbSet<GtfsStop> GtfsStops => Set<GtfsStop>();
@@ -43,6 +47,28 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<VehiclePosition>()
             .HasIndex(vehiclePosition => new { vehiclePosition.RouteId, vehiclePosition.RecordedAtUtc });
+
+        modelBuilder.Entity<GtfsCalendar>()
+            .HasIndex(calendar => new { calendar.ImportRunId, calendar.ServiceId });
+
+        modelBuilder.Entity<GtfsCalendarDate>()
+            .HasIndex(calendarDate => new { calendarDate.ImportRunId, calendarDate.Date, calendarDate.ServiceId });
+
+        modelBuilder.Entity<GtfsStopTime>()
+            .HasIndex(stopTime => new { stopTime.ImportRunId, stopTime.StopId, stopTime.DepartureTimeSeconds });
+
+        modelBuilder.Entity<GtfsStopTime>()
+            .HasIndex(stopTime => new { stopTime.ImportRunId, stopTime.TripId, stopTime.StopSequence });
+
+        modelBuilder.Entity<GtfsImportRun>()
+            .HasMany(importRun => importRun.Calendars)
+            .WithOne(calendar => calendar.ImportRun)
+            .HasForeignKey(calendar => calendar.ImportRunId);
+
+        modelBuilder.Entity<GtfsImportRun>()
+            .HasMany(importRun => importRun.CalendarDates)
+            .WithOne(calendarDate => calendarDate.ImportRun)
+            .HasForeignKey(calendarDate => calendarDate.ImportRunId);
 
         modelBuilder.Entity<GtfsImportRun>()
             .HasMany(importRun => importRun.Routes)

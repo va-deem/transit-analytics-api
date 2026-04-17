@@ -24,6 +24,8 @@ public class GtfsImportService : IGtfsImportService
         string gtfsDirectory,
         CancellationToken cancellationToken = default)
     {
+        var calendarPath = Path.Combine(gtfsDirectory, "calendar.txt");
+        var calendarDatesPath = Path.Combine(gtfsDirectory, "calendar_dates.txt");
         var feedInfoPath = Path.Combine(gtfsDirectory, "feed_info.txt");
         var routesPath = Path.Combine(gtfsDirectory, "routes.txt");
         var shapesPath = Path.Combine(gtfsDirectory, "shapes.txt");
@@ -46,9 +48,13 @@ public class GtfsImportService : IGtfsImportService
         try
         {
             var routes = ReadRoutes(routesPath, importRun.Id);
+            var calendars = ReadCalendars(calendarPath, importRun.Id);
+            var calendarDates = ReadCalendarDates(calendarDatesPath, importRun.Id);
             var stops = ReadStops(stopsPath, importRun.Id);
             var trips = ReadTrips(tripsPath, importRun.Id);
 
+            _appDbContext.GtfsCalendars.AddRange(calendars);
+            _appDbContext.GtfsCalendarDates.AddRange(calendarDates);
             _appDbContext.GtfsRoutes.AddRange(routes);
             _appDbContext.GtfsStops.AddRange(stops);
             _appDbContext.GtfsTrips.AddRange(trips);
@@ -131,6 +137,55 @@ public class GtfsImportService : IGtfsImportService
                 RouteType = route.RouteType,
                 RouteColor = GetOptionalValue(route.RouteColor),
                 RouteTextColor = GetOptionalValue(route.RouteTextColor)
+            })
+            .ToList();
+    }
+
+    private static List<GtfsCalendar> ReadCalendars(string filePath, long importRunId)
+    {
+        if (!File.Exists(filePath))
+        {
+            return [];
+        }
+
+        using var reader = new StreamReader(filePath);
+        using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
+
+        return csv.GetRecords<GtfsCalendarRecord>()
+            .Select(calendar => new GtfsCalendar
+            {
+                ImportRunId = importRunId,
+                ServiceId = GetRequiredValue(calendar.ServiceId, "service_id"),
+                Monday = calendar.Monday == 1,
+                Tuesday = calendar.Tuesday == 1,
+                Wednesday = calendar.Wednesday == 1,
+                Thursday = calendar.Thursday == 1,
+                Friday = calendar.Friday == 1,
+                Saturday = calendar.Saturday == 1,
+                Sunday = calendar.Sunday == 1,
+                StartDate = ParseGtfsDate(calendar.StartDate, "start_date"),
+                EndDate = ParseGtfsDate(calendar.EndDate, "end_date")
+            })
+            .ToList();
+    }
+
+    private static List<GtfsCalendarDate> ReadCalendarDates(string filePath, long importRunId)
+    {
+        if (!File.Exists(filePath))
+        {
+            return [];
+        }
+
+        using var reader = new StreamReader(filePath);
+        using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
+
+        return csv.GetRecords<GtfsCalendarDateRecord>()
+            .Select(calendarDate => new GtfsCalendarDate
+            {
+                ImportRunId = importRunId,
+                ServiceId = GetRequiredValue(calendarDate.ServiceId, "service_id"),
+                Date = ParseGtfsDate(calendarDate.Date, "date"),
+                ExceptionType = calendarDate.ExceptionType
             })
             .ToList();
     }
@@ -228,6 +283,8 @@ public class GtfsImportService : IGtfsImportService
                 ImportRunId = importRunId,
                 TripId = GetRequiredValue(stopTime.TripId, "trip_id"),
                 StopId = GetRequiredValue(stopTime.StopId, "stop_id"),
+                ArrivalTimeSeconds = ParseGtfsTime(stopTime.ArrivalTime),
+                DepartureTimeSeconds = ParseGtfsTime(stopTime.DepartureTime),
                 StopSequence = stopTime.StopSequence,
                 StopHeadsign = GetOptionalValue(stopTime.StopHeadsign),
                 ShapeDistTraveled = stopTime.ShapeDistTraveled
@@ -258,6 +315,14 @@ public class GtfsImportService : IGtfsImportService
         {
             return;
         }
+
+        await _appDbContext.GtfsCalendarDates
+            .Where(calendarDate => inactiveImportRunIds.Contains(calendarDate.ImportRunId))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        await _appDbContext.GtfsCalendars
+            .Where(calendar => inactiveImportRunIds.Contains(calendar.ImportRunId))
+            .ExecuteDeleteAsync(cancellationToken);
 
         await _appDbContext.GtfsRoutes
             .Where(route => inactiveImportRunIds.Contains(route.ImportRunId))
@@ -313,6 +378,37 @@ public class GtfsImportService : IGtfsImportService
         return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 
+    private static DateOnly ParseGtfsDate(string? value, string fieldName)
+    {
+        var requiredValue = GetRequiredValue(value, fieldName);
+
+        if (!DateOnly.TryParseExact(requiredValue, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+        {
+            throw new InvalidOperationException($"GTFS field '{fieldName}' contains an invalid date value '{requiredValue}'.");
+        }
+
+        return date;
+    }
+
+    private static int? ParseGtfsTime(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var segments = value.Split(':');
+        if (segments.Length != 3 ||
+            !int.TryParse(segments[0], out var hours) ||
+            !int.TryParse(segments[1], out var minutes) ||
+            !int.TryParse(segments[2], out var seconds))
+        {
+            throw new InvalidOperationException($"GTFS time value '{value}' is invalid.");
+        }
+
+        return (hours * 3600) + (minutes * 60) + seconds;
+    }
+
     private sealed class GtfsFeedInfoRecord
     {
         [Name("feed_version")]
@@ -341,6 +437,51 @@ public class GtfsImportService : IGtfsImportService
 
         [Name("route_text_color")]
         public string? RouteTextColor { get; set; }
+    }
+
+    private sealed class GtfsCalendarRecord
+    {
+        [Name("service_id")]
+        public string ServiceId { get; set; } = string.Empty;
+
+        [Name("monday")]
+        public int Monday { get; set; }
+
+        [Name("tuesday")]
+        public int Tuesday { get; set; }
+
+        [Name("wednesday")]
+        public int Wednesday { get; set; }
+
+        [Name("thursday")]
+        public int Thursday { get; set; }
+
+        [Name("friday")]
+        public int Friday { get; set; }
+
+        [Name("saturday")]
+        public int Saturday { get; set; }
+
+        [Name("sunday")]
+        public int Sunday { get; set; }
+
+        [Name("start_date")]
+        public string StartDate { get; set; } = string.Empty;
+
+        [Name("end_date")]
+        public string EndDate { get; set; } = string.Empty;
+    }
+
+    private sealed class GtfsCalendarDateRecord
+    {
+        [Name("service_id")]
+        public string ServiceId { get; set; } = string.Empty;
+
+        [Name("date")]
+        public string Date { get; set; } = string.Empty;
+
+        [Name("exception_type")]
+        public int ExceptionType { get; set; }
     }
 
     private sealed class GtfsTripRecord
@@ -413,6 +554,12 @@ public class GtfsImportService : IGtfsImportService
     {
         [Name("trip_id")]
         public string TripId { get; set; } = string.Empty;
+
+        [Name("arrival_time")]
+        public string? ArrivalTime { get; set; }
+
+        [Name("departure_time")]
+        public string? DepartureTime { get; set; }
 
         [Name("stop_id")]
         public string StopId { get; set; } = string.Empty;

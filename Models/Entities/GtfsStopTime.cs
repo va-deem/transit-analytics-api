@@ -10,6 +10,10 @@ public class GtfsStopTime
 
     public string StopId { get; set; } = string.Empty;
 
+    public int? ArrivalTimeSeconds { get; set; }
+
+    public int? DepartureTimeSeconds { get; set; }
+
     public int StopSequence { get; set; }
 
     public string? StopHeadsign { get; set; }
