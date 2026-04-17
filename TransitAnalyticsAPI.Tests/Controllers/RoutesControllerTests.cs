@@ -13,7 +13,7 @@ public class RoutesControllerTests
     {
         var routes = new List<RouteDto>
         {
-            new() { RouteId = "route-1", RouteShortName = "R1", LatestVehicleCount = 3 },
+            new() { RouteId = "route-1", RouteShortName = "R1", DirectionHeadsigns = ["Albany", "Newmarket"], LatestVehicleCount = 3 },
             new() { RouteId = "route-2", RouteShortName = "R2", LatestVehicleCount = 0 }
         };
         var controller = CreateController(routes: routes);
@@ -24,6 +24,7 @@ public class RoutesControllerTests
         var returned = Assert.IsType<List<RouteDto>>(ok.Value);
         Assert.Equal(2, returned.Count);
         Assert.Equal("route-1", returned[0].RouteId);
+        Assert.Equal(["Albany", "Newmarket"], returned[0].DirectionHeadsigns);
     }
 
     [Fact]

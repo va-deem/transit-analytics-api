@@ -14,5 +14,7 @@ public class RouteDto
 
     public string? RouteColor { get; set; }
 
+    public List<string> DirectionHeadsigns { get; set; } = [];
+
     public int LatestVehicleCount { get; set; }
 }

@@ -35,6 +35,33 @@ public class RoutesQueryService : IRoutesQueryService
             .GroupBy(vehicle => vehicle.RouteId!)
             .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
 
+        var routeDirectionHeadsigns = await _appDbContext.GtfsTrips
+            .AsNoTracking()
+            .Where(trip =>
+                trip.ImportRunId == activeImportRunId.Value &&
+                string.IsNullOrWhiteSpace(trip.TripHeadsign) == false)
+            .Select(trip => new
+            {
+                trip.RouteId,
+                DirectionSortKey = trip.DirectionId ?? int.MaxValue,
+                TripHeadsign = trip.TripHeadsign!
+            })
+            .ToListAsync(cancellationToken);
+
+        var directionHeadsignsByRouteId = routeDirectionHeadsigns
+            .GroupBy(trip => trip.RouteId, StringComparer.Ordinal)
+            .ToDictionary(
+                group => group.Key,
+                group => group
+                    .GroupBy(trip => trip.DirectionSortKey)
+                    .OrderBy(directionGroup => directionGroup.Key)
+                    .SelectMany(directionGroup => directionGroup
+                        .Select(trip => trip.TripHeadsign)
+                        .Distinct(StringComparer.Ordinal)
+                        .OrderBy(headsign => headsign, StringComparer.Ordinal))
+                    .ToList(),
+                StringComparer.Ordinal);
+
         var routes = await _appDbContext.GtfsRoutes
             .AsNoTracking()
             .Where(route => route.ImportRunId == activeImportRunId.Value)
@@ -48,6 +75,7 @@ public class RoutesQueryService : IRoutesQueryService
                 RouteType = route.RouteType,
                 VehicleType = VehicleTypeMapper.Map(route.RouteType),
                 RouteColor = route.RouteColor,
+                DirectionHeadsigns = new List<string>(),
                 LatestVehicleCount = 0
             })
             .ToListAsync(cancellationToken);
@@ -57,6 +85,11 @@ public class RoutesQueryService : IRoutesQueryService
             if (latestVehicleCountsByRouteId.TryGetValue(route.RouteId, out var latestVehicleCount))
             {
                 route.LatestVehicleCount = latestVehicleCount;
+            }
+
+            if (directionHeadsignsByRouteId.TryGetValue(route.RouteId, out var directionHeadsigns))
+            {
+                route.DirectionHeadsigns = directionHeadsigns;
             }
         }
 
