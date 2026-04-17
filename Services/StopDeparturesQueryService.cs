@@ -66,6 +66,10 @@ public class StopDeparturesQueryService : IStopDeparturesQueryService
                 && activeServiceIds.Contains(trip.ServiceId)
                 && (stopTime.ArrivalTimeSeconds ?? stopTime.DepartureTimeSeconds) != null
                 && (stopTime.ArrivalTimeSeconds ?? stopTime.DepartureTimeSeconds) >= secondsSinceServiceDayStart
+                && _appDbContext.GtfsStopTimes.Any(nextStopTime =>
+                    nextStopTime.ImportRunId == stopTime.ImportRunId &&
+                    nextStopTime.TripId == stopTime.TripId &&
+                    nextStopTime.StopSequence > stopTime.StopSequence)
             orderby stopTime.ArrivalTimeSeconds ?? stopTime.DepartureTimeSeconds, route.RouteShortName, trip.TripId
             select new
             {

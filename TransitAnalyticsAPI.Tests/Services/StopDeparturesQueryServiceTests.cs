@@ -63,6 +63,15 @@ public class StopDeparturesQueryServiceTests
                 ArrivalTimeSeconds = 12 * 3600,
                 DepartureTimeSeconds = 12 * 3600,
                 StopSequence = 9
+            },
+            new GtfsStopTime
+            {
+                ImportRunId = 1,
+                TripId = "trip-1",
+                StopId = "stop-2",
+                ArrivalTimeSeconds = (14 * 3600) + (45 * 60),
+                DepartureTimeSeconds = (14 * 3600) + (45 * 60),
+                StopSequence = 11
             });
         dbContext.VehiclePositions.Add(new VehiclePosition
         {
@@ -177,11 +186,29 @@ public class StopDeparturesQueryServiceTests
             new GtfsStopTime
             {
                 ImportRunId = 1,
+                TripId = "removed-trip",
+                StopId = "stop-2",
+                ArrivalTimeSeconds = (15 * 3600) + (10 * 60),
+                DepartureTimeSeconds = (15 * 3600) + (10 * 60),
+                StopSequence = 2
+            },
+            new GtfsStopTime
+            {
+                ImportRunId = 1,
                 TripId = "added-trip",
                 StopId = "stop-1",
                 ArrivalTimeSeconds = 16 * 3600,
                 DepartureTimeSeconds = 16 * 3600,
                 StopSequence = 1
+            },
+            new GtfsStopTime
+            {
+                ImportRunId = 1,
+                TripId = "added-trip",
+                StopId = "stop-2",
+                ArrivalTimeSeconds = (16 * 3600) + (10 * 60),
+                DepartureTimeSeconds = (16 * 3600) + (10 * 60),
+                StopSequence = 2
             });
         await dbContext.SaveChangesAsync();
 
@@ -198,5 +225,102 @@ public class StopDeparturesQueryServiceTests
 
         var departure = Assert.Single(departures);
         Assert.Equal("Added", departure.TripHeadsign);
+    }
+
+    [Fact]
+    public async Task GetUpcomingDeparturesAsync_ExcludesTerminalArrivalAtRequestedStop()
+    {
+        await using var dbContext = TestDbContextFactory.CreateSqliteDbContext();
+        dbContext.GtfsImportRuns.Add(new GtfsImportRun
+        {
+            Id = 1,
+            SourceVersion = "test",
+            StartedAtUtc = DateTime.UtcNow,
+            Status = GtfsImportStatus.Completed,
+            IsActive = true
+        });
+        dbContext.GtfsCalendars.Add(new GtfsCalendar
+        {
+            ImportRunId = 1,
+            ServiceId = "weekday",
+            Friday = true,
+            StartDate = new DateOnly(2026, 4, 1),
+            EndDate = new DateOnly(2026, 4, 30)
+        });
+        dbContext.GtfsRoutes.Add(new GtfsRoute
+        {
+            ImportRunId = 1,
+            RouteId = "ferry-1",
+            RouteShortName = "F1"
+        });
+        dbContext.GtfsTrips.AddRange(
+            new GtfsTrip
+            {
+                ImportRunId = 1,
+                TripId = "trip-terminal",
+                RouteId = "ferry-1",
+                ServiceId = "weekday",
+                TripHeadsign = "Waiheke Walk-up"
+            },
+            new GtfsTrip
+            {
+                ImportRunId = 1,
+                TripId = "trip-through",
+                RouteId = "ferry-1",
+                ServiceId = "weekday",
+                TripHeadsign = "Downtown"
+            });
+        dbContext.GtfsStopTimes.AddRange(
+            new GtfsStopTime
+            {
+                ImportRunId = 1,
+                TripId = "trip-terminal",
+                StopId = "waiheke-terminal",
+                ArrivalTimeSeconds = (14 * 3600) + (26 * 60),
+                DepartureTimeSeconds = (14 * 3600) + (26 * 60),
+                StopSequence = 2
+            },
+            new GtfsStopTime
+            {
+                ImportRunId = 1,
+                TripId = "trip-terminal",
+                StopId = "other-stop",
+                ArrivalTimeSeconds = 14 * 3600,
+                DepartureTimeSeconds = 14 * 3600,
+                StopSequence = 1
+            },
+            new GtfsStopTime
+            {
+                ImportRunId = 1,
+                TripId = "trip-through",
+                StopId = "waiheke-terminal",
+                ArrivalTimeSeconds = (14 * 3600) + (30 * 60),
+                DepartureTimeSeconds = (14 * 3600) + (30 * 60),
+                StopSequence = 1
+            },
+            new GtfsStopTime
+            {
+                ImportRunId = 1,
+                TripId = "trip-through",
+                StopId = "other-stop",
+                ArrivalTimeSeconds = (14 * 3600) + (45 * 60),
+                DepartureTimeSeconds = (14 * 3600) + (45 * 60),
+                StopSequence = 2
+            });
+        await dbContext.SaveChangesAsync();
+
+        var service = new StopDeparturesQueryService(
+            dbContext,
+            new FakeActiveImportRunResolver(1),
+            new FakeTimeProvider(new DateTimeOffset(2026, 4, 17, 1, 0, 0, TimeSpan.Zero)),
+            Options.Create(new VehicleOptions
+            {
+                LatestPositionMaxAgeMinutes = 5
+            }));
+
+        var departures = await service.GetUpcomingDeparturesAsync("waiheke-terminal", CancellationToken.None);
+
+        var departure = Assert.Single(departures);
+        Assert.Equal("Downtown", departure.TripHeadsign);
     }
 }
