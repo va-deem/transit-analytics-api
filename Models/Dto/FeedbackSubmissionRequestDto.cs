@@ -16,7 +16,4 @@ public class FeedbackSubmissionRequestDto
     [Required]
     [StringLength(4000)]
     public string Message { get; set; } = string.Empty;
-
-    [StringLength(128)]
-    public string? Ip { get; set; }
 }

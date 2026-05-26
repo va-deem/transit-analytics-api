@@ -38,7 +38,7 @@ public class FeedbackControllerTests
     }
 
     [Fact]
-    public async Task Create_UsesRequestIp_WhenProvided()
+    public async Task Create_UsesRemoteIp_WhenAvailable()
     {
         await using var dbContext = TestDbContextFactory.CreateSqliteDbContext();
         var controller = CreateController(dbContext, TimeProvider.System, remoteIpAddress: "203.0.113.10");
@@ -47,12 +47,11 @@ public class FeedbackControllerTests
         {
             Name = "Jane Doe",
             Email = "jane@example.com",
-            Message = "Love the app.",
-            Ip = "198.51.100.20"
+            Message = "Love the app."
         }, CancellationToken.None);
 
         var submission = await dbContext.FeedbackSubmissions.SingleAsync();
-        Assert.Equal("198.51.100.20", submission.Ip);
+        Assert.Equal("203.0.113.10", submission.Ip);
     }
 
     [Fact]

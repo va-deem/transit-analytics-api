@@ -29,7 +29,7 @@ public class FeedbackController : ControllerBase
         string name = request.Name.Trim();
         string email = request.Email.Trim();
         string message = request.Message.Trim();
-        string ip = ResolveIp(request.Ip);
+        string ip = ResolveIp();
 
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -98,13 +98,8 @@ public class FeedbackController : ControllerBase
         return submission is null ? NotFound() : Ok(submission);
     }
 
-    private string ResolveIp(string? requestIp)
+    private string ResolveIp()
     {
-        if (!string.IsNullOrWhiteSpace(requestIp))
-        {
-            return requestIp.Trim();
-        }
-
         return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     }
 }

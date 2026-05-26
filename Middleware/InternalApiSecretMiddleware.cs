@@ -56,6 +56,7 @@ public class InternalApiSecretMiddleware
     private bool IsExcludedPath(PathString path)
     {
         return path.StartsWithSegments("/admin") ||
+               path.StartsWithSegments("/feedback") ||
                path.StartsWithSegments("/health") ||
                path.StartsWithSegments("/ws/vehicles");
     }
