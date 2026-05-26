@@ -83,6 +83,16 @@
             cursor: pointer;
         }
 
+        .link-button {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.8rem 1rem;
+            border-radius: 10px;
+            background: var(--accent);
+            color: white;
+            text-decoration: none;
+        }
+
         .secondary {
             background: #433b32;
         }
@@ -198,9 +208,12 @@
             <h1>Operations</h1>
             <p>Administrative controls for maintenance mode and future GTFS/settings tools.</p>
         </div>
-        <form method="post" asp-page-handler="Logout">
-            <button type="submit" class="secondary">Sign Out</button>
-        </form>
+        <div class="actions">
+            <a href="/admin/feedback" class="link-button">View Feedback</a>
+            <form method="post" asp-page-handler="Logout">
+                <button type="submit" class="secondary">Sign Out</button>
+            </form>
+        </div>
     </header>
 
     @if (!string.IsNullOrWhiteSpace(Model.StatusMessage))

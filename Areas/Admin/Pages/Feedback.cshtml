@@ -1,0 +1,188 @@
+@page "/admin/feedback"
+@model TransitAnalyticsAPI.Areas.Admin.Pages.FeedbackModel
+@{
+    ViewData["Title"] = "Feedback";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f6f1e7;
+            --panel: rgba(255, 252, 244, 0.92);
+            --ink: #201a14;
+            --muted: #6b6258;
+            --accent: #0f766e;
+            --border: #ddd3c5;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            min-height: 100vh;
+            color: var(--ink);
+            font-family: Arial, serif;
+            background:
+                radial-gradient(circle at top, rgba(15, 118, 110, 0.08), transparent 35%),
+                linear-gradient(180deg, #f9f5ec 0%, #f3ede2 100%);
+        }
+
+        .page {
+            width: min(1200px, calc(100vw - 40px));
+            margin: 20px auto;
+        }
+
+        header, section {
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: var(--panel);
+            box-shadow: 0 14px 30px rgba(32, 26, 20, 0.08);
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.25rem;
+        }
+
+        section {
+            padding: 1.5rem;
+        }
+
+        h1, h2, p {
+            margin-top: 0;
+        }
+
+        p {
+            color: var(--muted);
+        }
+
+        .actions {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        a {
+            display: inline-block;
+            padding: 0.8rem 1rem;
+            border-radius: 10px;
+            background: var(--accent);
+            color: white;
+            text-decoration: none;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 0.85rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+            text-align: left;
+        }
+
+        th {
+            font-size: 0.9rem;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        td.message {
+            white-space: pre-wrap;
+            min-width: 280px;
+        }
+
+        .empty {
+            padding: 1rem;
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        @@media (max-width: 900px) {
+            table, thead, tbody, th, td, tr {
+                display: block;
+            }
+
+            thead {
+                display: none;
+            }
+
+            tr {
+                padding: 0.75rem 0;
+                border-bottom: 1px solid var(--border);
+            }
+
+            td {
+                border: 0;
+                padding: 0.35rem 0;
+            }
+
+            td::before {
+                content: attr(data-label) ": ";
+                font-weight: 700;
+                color: var(--ink);
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <header>
+        <div>
+            <h1>Feedback</h1>
+            <p>User-submitted feedback captured through the public feedback form.</p>
+        </div>
+        <div class="actions">
+            <a href="/admin/settings">Back to Settings</a>
+        </div>
+    </header>
+
+    <section>
+        <h2>Submissions</h2>
+
+        @if (Model.Items.Count == 0)
+        {
+            <div class="empty">No feedback submissions have been received yet.</div>
+        }
+        else
+        {
+            <table>
+                <thead>
+                <tr>
+                    <th>Received</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>IP</th>
+                    <th>Message</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td data-label="Received">@item.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss 'UTC'")</td>
+                        <td data-label="Name">@item.Name</td>
+                        <td data-label="Email">@item.Email</td>
+                        <td data-label="IP">@item.Ip</td>
+                        <td data-label="Message" class="message">@item.Message</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </section>
+</div>
+</body>
+</html>

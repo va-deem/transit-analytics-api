@@ -11,6 +11,8 @@ public class AppDbContext : DbContext
 
     public DbSet<AdminSettings> AdminSettings => Set<AdminSettings>();
 
+    public DbSet<FeedbackSubmission> FeedbackSubmissions => Set<FeedbackSubmission>();
+
     public DbSet<GtfsImportRun> GtfsImportRuns => Set<GtfsImportRun>();
 
     public DbSet<GtfsRoute> GtfsRoutes => Set<GtfsRoute>();
@@ -47,6 +49,9 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<VehiclePosition>()
             .HasIndex(vehiclePosition => new { vehiclePosition.RouteId, vehiclePosition.RecordedAtUtc });
+
+        modelBuilder.Entity<FeedbackSubmission>()
+            .HasIndex(feedbackSubmission => feedbackSubmission.CreatedAtUtc);
 
         modelBuilder.Entity<GtfsCalendar>()
             .HasIndex(calendar => new { calendar.ImportRunId, calendar.ServiceId });

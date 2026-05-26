@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
+using System.Threading.RateLimiting;
 using System.Threading.Channels;
 using TransitAnalyticsAPI.Admin.Security;
 using TransitAnalyticsAPI.Admin.Services;
@@ -32,6 +34,8 @@ builder.Services.Configure<VehicleOptions>(
     builder.Configuration.GetSection(VehicleOptions.SectionName));
 builder.Services.Configure<InternalApiOptions>(
     builder.Configuration.GetSection(InternalApiOptions.SectionName));
+builder.Services.Configure<FeedbackOptions>(
+    builder.Configuration.GetSection(FeedbackOptions.SectionName));
 builder.Services.Configure<VehicleWebSocketOptions>(
     builder.Configuration.GetSection(VehicleWebSocketOptions.SectionName));
 builder.Services.AddSingleton(Channel.CreateBounded<GtfsUploadJob>(new BoundedChannelOptions(1)
@@ -98,6 +102,33 @@ builder.Services.AddAuthorization(options =>
         policy.RequireRole("admin");
     });
 });
+var feedbackOptions = builder.Configuration
+    .GetSection(FeedbackOptions.SectionName)
+    .Get<FeedbackOptions>() ?? new FeedbackOptions();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.ContentType = "application/json";
+        await context.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            error = "rate_limited",
+            message = "Too many submissions from this IP. Try again later."
+        }, cancellationToken);
+    };
+    options.AddPolicy("feedback-submissions", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = feedbackOptions.RateLimitPermitLimit,
+                Window = TimeSpan.FromMinutes(feedbackOptions.RateLimitWindowMinutes),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+});
 builder.Services.AddHttpClient<IAucklandTransportClient, AucklandTransportClient>((serviceProvider, httpClient) =>
 {
     var options = serviceProvider
@@ -139,7 +170,9 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
     KnownProxies = { IPAddress.Loopback, IPAddress.IPv6Loopback }
 });
+app.UseRouting();
 app.UseWebSockets();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseMiddleware<MaintenanceModeMiddleware>();
 app.UseMiddleware<InternalApiSecretMiddleware>();
