@@ -1,6 +1,13 @@
 name: CI and Deploy
 
 on:
+  workflow_dispatch:
+    inputs:
+      deploy_prod:
+        description: Deploy to production
+        required: false
+        default: "false"
+        type: boolean
   push:
     branches: [ "main" ]
   pull_request:
@@ -24,10 +31,14 @@ jobs:
       - name: Run tests
         run: dotnet test --no-build --verbosity normal
       - name: Publish application
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: |
+          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'workflow_dispatch' && inputs.deploy_prod == 'true')
         run: dotnet publish -c Release -o publish
       - name: Upload publish artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: |
+          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'workflow_dispatch' && inputs.deploy_prod == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: publish
@@ -35,7 +46,9 @@ jobs:
 
   deploy_prod:
     needs: ci
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_prod == 'true')
     runs-on: ubuntu-latest
 
     steps:
