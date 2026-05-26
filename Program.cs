@@ -191,6 +191,7 @@ if (app.Environment.IsDevelopment())
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    ForwardLimit = 1,
     KnownProxies = { IPAddress.Loopback, IPAddress.IPv6Loopback }
 });
 app.Use(async (context, next) =>
