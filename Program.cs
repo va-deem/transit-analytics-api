@@ -18,6 +18,9 @@ using TransitAnalyticsAPI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 const long gtfsUploadMaxBytes = 100L * 1024 * 1024;
+var configuredAdminOptions = builder.Configuration
+    .GetSection(AdminOptions.SectionName)
+    .Get<AdminOptions>() ?? new AdminOptions();
 
 builder.Services.AddControllers();
 builder.Services.AddRazorPages();
@@ -79,11 +82,7 @@ builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        var adminOptions = builder.Configuration
-            .GetSection(AdminOptions.SectionName)
-            .Get<AdminOptions>() ?? new AdminOptions();
-
-        options.Cookie.Name = adminOptions.CookieName;
+        options.Cookie.Name = configuredAdminOptions.CookieName;
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
@@ -111,10 +110,23 @@ builder.Services.AddRateLimiter(options =>
     options.OnRejected = async (context, cancellationToken) =>
     {
         context.HttpContext.Response.ContentType = "application/json";
+        var message = "Too many requests. Try again later.";
+
+        if (context.HttpContext.Request.Path.StartsWithSegments("/feedback"))
+        {
+            message = "Too many feedback submissions from this IP. Try again later.";
+        }
+        else if (context.HttpContext.Request.Path.Equals(
+                     "/admin/login",
+                     StringComparison.OrdinalIgnoreCase))
+        {
+            message = "Too many admin login attempts from this IP. Try again later.";
+        }
+
         await context.HttpContext.Response.WriteAsJsonAsync(new
         {
             error = "rate_limited",
-            message = "Too many submissions from this IP. Try again later."
+            message
         }, cancellationToken);
     };
     options.AddPolicy("feedback-submissions", httpContext =>
@@ -124,6 +136,17 @@ builder.Services.AddRateLimiter(options =>
             {
                 PermitLimit = feedbackOptions.RateLimitPermitLimit,
                 Window = TimeSpan.FromMinutes(feedbackOptions.RateLimitWindowMinutes),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+    options.AddPolicy("admin-login", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = configuredAdminOptions.LoginRateLimitPermitLimit,
+                Window = TimeSpan.FromMinutes(configuredAdminOptions.LoginRateLimitWindowMinutes),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 0,
                 AutoReplenishment = true
@@ -169,6 +192,26 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
     KnownProxies = { IPAddress.Loopback, IPAddress.IPv6Loopback }
+});
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.Equals("/admin", StringComparison.OrdinalIgnoreCase) ||
+        context.Request.Path.Equals("/admin/", StringComparison.OrdinalIgnoreCase))
+    {
+        context.Response.Redirect("/admin/login", permanent: false);
+        return;
+    }
+
+    await next();
+});
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/admin"))
+    {
+        context.Response.Headers.Append("X-Robots-Tag", "noindex, nofollow, noarchive");
+    }
+
+    await next();
 });
 app.UseRouting();
 app.UseWebSockets();

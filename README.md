@@ -55,12 +55,11 @@ The app:
 
 ### Admin
 
-- `/admin/login`
-- `/admin/settings`
 - maintenance mode toggle
 - polling enable/disable toggle
 - GTFS `.zip` upload and background import
 - GTFS import status visibility
+- feedback submission visibility
 
 ### Background services
 
@@ -124,8 +123,6 @@ By default, local development runs without production-only internal secret enfor
 Typical local URLs:
 
 - `http://localhost:5193/health`
-- `http://localhost:5193/admin/login`
-- `http://localhost:5193/admin/settings`
 - `ws://localhost:5193/ws/vehicles`
 
 If your local launch profile uses a different port, use that port instead.
@@ -139,6 +136,8 @@ Important configuration sections:
 - `AucklandTransport:SubscriptionKey`
 - `Admin:PasswordHash`
 - `Admin:CookieName`
+- `Admin:LoginRateLimitPermitLimit`
+- `Admin:LoginRateLimitWindowMinutes`
 - `Vehicles:LatestPositionMaxAgeMinutes`
 - `Vehicles:HistoryRetentionDays`
 - `InternalApi:Secret`
@@ -151,7 +150,9 @@ Important configuration sections:
 Current behavior:
 
 - admin is protected with cookie authentication
-- maintenance mode keeps `/health` and `/admin/*` reachable while blocking public traffic
+- admin uses a fixed non-indexed public path and returns `X-Robots-Tag: noindex, nofollow, noarchive`
+- maintenance mode keeps `/health` and the admin area reachable while blocking public traffic
+- admin login is rate-limited per IP
 - WebSocket origin allowlisting and total connection caps are configurable
 
 For local development:
@@ -178,6 +179,7 @@ Current capabilities:
 - enable or disable polling
 - upload a GTFS `.zip` archive
 - monitor GTFS import status
+- review feedback submissions
 
 ## Useful Commands
 

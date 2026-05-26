@@ -5,13 +5,6 @@ namespace TransitAnalyticsAPI.Middleware;
 
 public class InternalApiSecretMiddleware
 {
-    private static readonly PathString[] ExcludedPaths =
-    [
-        new("/admin"),
-        new("/health"),
-        new("/ws/vehicles")
-    ];
-
     private readonly RequestDelegate _next;
     private readonly InternalApiOptions _options;
     private readonly IWebHostEnvironment _environment;
@@ -60,16 +53,10 @@ public class InternalApiSecretMiddleware
         await _next(context);
     }
 
-    private static bool IsExcludedPath(PathString path)
+    private bool IsExcludedPath(PathString path)
     {
-        foreach (var excludedPath in ExcludedPaths)
-        {
-            if (path.StartsWithSegments(excludedPath))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return path.StartsWithSegments("/admin") ||
+               path.StartsWithSegments("/health") ||
+               path.StartsWithSegments("/ws/vehicles");
     }
 }
